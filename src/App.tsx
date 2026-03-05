@@ -9,87 +9,26 @@ import {
   Briefcase, Users, Layers, BarChart3, ChevronRight, HardHat, FileText, 
   Settings, ArrowLeft, CheckCircle2, AlertCircle, Zap, Target, ShieldCheck,
   Download, Plus, Trash2, Search, Filter, Calendar, MapPin, Building2,
-  FileCheck, FileSignature, ClipboardList, Info, Loader2, Upload
+  FileCheck, FileSignature, ClipboardList, Info, Loader2, Upload,
+  ListChecks, Globe, Database, UserCheck, BookOpen, Terminal, Cloud, MessageSquare,
+  Cpu, Layout, Lock, Share2, GitBranch, Server, Activity, Workflow,
+  FileCode, Code2, Copy
 } from 'lucide-react';
-import * as XLSX from 'xlsx';
-import { GoogleGenAI, ThinkingLevel } from "@google/genai";
+import { ThinkingLevel } from "@google/genai";
 
-type Vector = {
-  id: number;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
-  color: string;
-};
+// Modular Imports
+import { Vector, Project, ActDetail, EstimateItem, Certificate } from './modules/shared/domain/types';
+import { documentService } from './modules/documents/application/documentService';
+import { aiService } from './modules/ai-engine/infrastructure/aiService';
+import { eventBus } from './modules/shared/infrastructure/eventBus';
+import { authService } from './modules/auth/application/authService';
+import { projectService } from './modules/projects/application/projectService';
+import { mockProjects } from './modules/projects/infrastructure/mockProjects';
 
-type Project = {
-  id: string;
-  name: string;
-  object: string;
-  developer: { name: string; requisites: string; sro: string };
-  contractor: { name: string; requisites: string; sro: string };
-  designer: { name: string; requisites: string; sro: string };
-  participants: {
-    repDeveloper: string;
-    repContractor: string;
-    repContractorSk: string;
-    repDesigner: string;
-    repSubcontractor: string;
-  };
-  createdAt: string;
-};
+import { VECTORS, BMC_DATA } from './modules/shared/domain/constants';
 
-const vectors: Vector[] = [
-  {
-    id: 1,
-    title: "Проработка бизнес-модели",
-    description: "Работа с Business Model Canvas: ценностное предложение, потоки доходов и структура издержек.",
-    icon: <Briefcase className="w-6 h-6" />,
-    color: "bg-blue-500"
-  },
-  {
-    id: 2,
-    title: "Портрет ЦА и боли",
-    description: "Анализ инженеров ПТО, застройщиков и генподрядчиков. Выявление критических проблем.",
-    icon: <Users className="w-6 h-6" />,
-    color: "bg-emerald-500"
-  },
-  {
-    id: 3,
-    title: "Функционал MVP",
-    description: "Определение приоритетных функций для первой версии: ОЖР, АОСР, автоматизация ИД.",
-    icon: <Layers className="w-6 h-6" />,
-    color: "bg-violet-500"
-  },
-  {
-    id: 4,
-    title: "Анализ конкурентов и УЦП",
-    description: "Сравнение с Signal, Exon, IYNO. Формирование уникального ценностного предложения.",
-    icon: <BarChart3 className="w-6 h-6" />,
-    color: "bg-orange-500"
-  },
-  {
-    id: 5,
-    title: "Анализ объема рынка (TAM/SAM/SOM)",
-    description: "Оценка потенциала рынка PropTech в РФ: от общего объема строительства до достижимого сегмента.",
-    icon: <BarChart3 className="w-6 h-6" />,
-    color: "bg-rose-500"
-  },
-  {
-    id: 6,
-    title: "Миграция и РФ-стек (Yandex AI)",
-    description: "Перенос на собственные сервера, интеграция YandexGPT и Yandex Vision для работы в РФ.",
-    icon: <ShieldCheck className="w-6 h-6" />,
-    color: "bg-indigo-600"
-  },
-  {
-    id: 7,
-    title: "Технологический стек",
-    description: "Описание архитектуры, языков программирования и библиотек, на которых построен StroyDoc AI.",
-    icon: <Settings className="w-6 h-6" />,
-    color: "bg-slate-700"
-  }
-];
+const vectors = VECTORS;
+const bmcData = BMC_DATA;
 
 const competitors = [
   {
@@ -130,43 +69,109 @@ const competitors = [
 ];
 
 export default function App() {
-  const [view, setView] = useState<'home' | 'analysis' | 'mvp' | 'business' | 'market' | 'persona' | 'migration' | 'stack'>('home');
-  const [subView, setSubView] = useState<'list' | 'estimate-detail' | 'projects' | 'create-project'>('list');
+  const [view, setView] = useState<'home' | 'analysis' | 'mvp' | 'business' | 'market' | 'persona' | 'migration' | 'stack' | 'auth' | 'profile'>('home');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
+  const [profileTab, setProfileTab] = useState<'projects' | 'estimates'>('projects');
+
+  useEffect(() => {
+    const initAuth = async () => {
+      const currentUser = await authService.checkAuth();
+      if (currentUser) {
+        setIsAuthenticated(true);
+        setUser(currentUser);
+        const myProjects = await projectService.fetchMyProjects();
+        setProjects(myProjects);
+      }
+    };
+    initAuth();
+  }, []);
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const email = (e.target as any).email.value;
+    const password = (e.target as any).password.value;
+    try {
+      const loggedUser = await authService.login(email, password);
+      setIsAuthenticated(true);
+      setUser(loggedUser);
+      const myProjects = await projectService.fetchMyProjects();
+      setProjects(myProjects);
+      setView('profile');
+    } catch (err) {
+      alert('Ошибка входа');
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const name = (e.target as any).name.value;
+    const email = (e.target as any).email.value;
+    const password = (e.target as any).password.value;
+    try {
+      const registeredUser = await authService.register(name, email, password);
+      setIsAuthenticated(true);
+      setUser(registeredUser);
+      setView('profile');
+    } catch (err: any) {
+      alert(err.message || 'Ошибка регистрации');
+    }
+  };
+
+  const handleLogout = async () => {
+    await authService.logout();
+    setIsAuthenticated(false);
+    setUser(null);
+    setView('home');
+  };
+
+  const handleStatusChange = async (actId: string, status: 'draft' | 'signed') => {
+    try {
+      await projectService.updateActStatus(actId, status);
+      setProjects([...projectService.getProjects()]);
+    } catch (err) {
+      alert('Ошибка обновления статуса');
+    }
+  };
+  const [subView, setSubView] = useState<'list' | 'estimate-detail' | 'projects' | 'create-project' | 'roadmap' | 'certificates' | 'future-plan'>('list');
   const [selectedVector, setSelectedVector] = useState<number | null>(null);
   const [currentActIndex, setCurrentActIndex] = useState(0);
   
-  const [projects, setProjects] = useState<Project[]>([
-    {
-      id: '1',
-      name: 'ЖК "Горизонт" - Корпус 1',
-      object: 'Жилой комплекс "Горизонт", Корпус 1, г. Москва, ул. Строителей, 25',
-      developer: { 
-        name: 'ООО "ГлавСтройИнвест"', 
-        requisites: 'ОГРН 1234567890123, ИНН 7701234567, 123456, г. Москва, ул. Ленина, д. 1, тел. +7 (495) 123-45-67',
-        sro: 'Член СРО "Альянс Строителей", ОГРН СРО 1027700000000'
-      },
-      contractor: {
-        name: 'ООО "СпецМонтажСтрой"',
-        requisites: 'ОГРН 9876543210987, ИНН 7705554433, г. Москва, ул. Профсоюзная, 10',
-        sro: 'Член СРО "Строительный Стандарт", ОГРН СРО 1037700000000'
-      },
-      designer: {
-        name: 'ООО "ПроектЦентр"',
-        requisites: 'ОГРН 1112223334445, ИНН 7709998877, г. Москва, наб. Академика Туполева, 15',
-        sro: 'Член СРО "Проектировщики России", ОГРН СРО 1047700000000'
-      },
-      participants: {
-        repDeveloper: 'Инженер СК, Иванов Иван Иванович, НРС С-77-123456, Приказ №45 от 10.01.2026',
-        repContractor: 'Производитель работ, Петров Петр Петрович, Приказ №12 от 15.01.2026',
-        repContractorSk: 'Специалист СК, Сидоров Сидор Сидорович, НРС С-77-654321, Приказ №8 от 12.01.2026',
-        repDesigner: 'ГИП, Кузнецов Алексей Сергеевич, Приказ №2 от 05.01.2026, ООО "ПроектЦентр"',
-        repSubcontractor: 'Мастер, Васильев Игорь Николаевич, Приказ №3 от 01.02.2026'
-      },
-      createdAt: '2026-02-15'
-    }
+  const [certificates, setCertificates] = useState<any[]>([
+    { id: '1', name: 'Бетон Б25 П4 W6 F150', provider: 'Петрович', date: '12.01.2026', file: 'cert_beton_01.pdf', status: 'active' },
+    { id: '2', name: 'Арматура А500С d12', provider: 'Петрович', date: '05.02.2026', file: 'cert_arm_12.pdf', status: 'active' },
   ]);
+  const [isParsingCerts, setIsParsingCerts] = useState(false);
+  
+  const [projects, setProjects] = useState<Project[]>(() => projectService.getProjects());
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
   const activeProject = projects.find(p => p.id === activeProjectId);
+
+  const updateActInProject = (actId: string, field: keyof ActDetail, value: string) => {
+    setProjects(prev => prev.map(p => {
+      if (p.id === activeProjectId) {
+        return {
+          ...p,
+          acts: p.acts.map(a => a.id === actId ? { ...a, [field]: value } : a)
+        };
+      }
+      return p;
+    }));
+  };
+
+  const deleteActFromProject = (actId: string) => {
+    if (!confirm('Вы уверены, что хотите удалить этот акт?')) return;
+    setProjects(prev => prev.map(p => {
+      if (p.id === activeProjectId) {
+        return {
+          ...p,
+          acts: p.acts.filter(a => a.id !== actId)
+        };
+      }
+      return p;
+    }));
+  };
 
   const [newProject, setNewProject] = useState<Partial<Project>>({
     name: '',
@@ -183,32 +188,39 @@ export default function App() {
     }
   });
 
-  const handleCreateProject = () => {
-    const project: Project = {
-      ...newProject as Project,
-      id: Math.random().toString(36).substr(2, 9),
-      createdAt: new Date().toISOString().split('T')[0]
-    };
-    setProjects([...projects, project]);
-    setActiveProjectId(project.id);
-    setSubView('list');
-    
-    // Sync actDetails with project data
-    setActDetails(prev => ({
-      ...prev,
-      object: project.object,
-      developer: `${project.developer.name}, ${project.developer.requisites}`,
-      developerSro: project.developer.sro,
-      contractor: `${project.contractor.name}, ${project.contractor.requisites}`,
-      contractorSro: project.contractor.sro,
-      designer: `${project.designer.name}, ${project.designer.requisites}`,
-      designerSro: project.designer.sro,
-      repDeveloper: project.participants.repDeveloper,
-      repContractor: project.participants.repContractor,
-      repContractorSk: project.participants.repContractorSk,
-      repDesigner: project.participants.repDesigner,
-      repSubcontractor: project.participants.repSubcontractor
-    }));
+  const handleCreateProject = async () => {
+    try {
+      const project = await projectService.addProject(newProject);
+      setProjects([...projectService.getProjects()]);
+      setActiveProjectId(project.id);
+      
+      if (view === 'profile') {
+        setProfileTab('projects');
+        setSubView('list');
+      } else {
+        setSubView('list');
+      }
+      
+      // Sync actDetails with project data
+      setActDetails(prev => ({
+        ...prev,
+        object: project.object,
+        developer: `${project.developer.name}, ${project.developer.requisites}`,
+        developerSro: project.developer.sro,
+        contractor: `${project.contractor.name}, ${project.contractor.requisites}`,
+        contractorSro: project.contractor.sro,
+        designer: `${project.designer.name}, ${project.designer.requisites}`,
+        designerSro: project.designer.sro,
+        repDeveloper: project.participants.repDeveloper,
+        repContractor: project.participants.repContractor,
+        repContractorSk: project.participants.repContractorSk,
+        repDesigner: project.participants.repDesigner,
+        repSubcontractor: project.participants.repSubcontractor
+      }));
+    } catch (err) {
+      console.error(err);
+      alert('Ошибка создания проекта');
+    }
   };
   
   const getMaterialsForWork = (workName: string) => {
@@ -239,6 +251,7 @@ export default function App() {
     repContractorSk: "Специалист СК, Сидоров Сидор Сидорович, НРС С-77-654321, Приказ №8 от 12.01.2026",
     repDesigner: "ГИП, Кузнецов Алексей Сергеевич, Приказ №2 от 05.01.2026, ООО \"ПроектЦентр\"",
     repSubcontractor: "Мастер, Васильев Игорь Николаевич, Приказ №3 от 01.02.2026",
+    workName: "Разработка грунта в траншеях",
     projectDoc: "Шифр 2024-05-КЖ, лист 12, Раздел 4 \"Конструктивные решения\"",
     materials: "Бетон B25 W6 F150 (Сертификат соответствия №098765), Арматура А500С (Паспорт качества №1122)",
     docs: "Исполнительная схема №5, результаты испытаний бетона (протокол №44)",
@@ -260,12 +273,28 @@ export default function App() {
   const [useColumns, setUseColumns] = useState({ name: true, unit: true, amount: true });
   const [estimateData, setEstimateData] = useState<any[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+
+  const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
   const [isScanningOrder, setIsScanningOrder] = useState(false);
   const [performanceMetrics, setPerformanceMetrics] = useState<{
     estimateParsing?: number;
     orderScanning?: number;
     materialAnalysis?: number;
   }>({});
+
+  // Sync materials when switching acts in preview
+  useEffect(() => {
+    if (estimateStep === 'preview' && selectedRows.length > 0) {
+      const currentWork = estimateData.find(r => r.id === selectedRows[currentActIndex]);
+      if (currentWork && currentWork.materialsAI) {
+        setActDetails(prev => ({
+          ...prev,
+          materials: currentWork.materialsAI
+        }));
+      }
+    }
+  }, [currentActIndex, estimateStep, selectedRows, estimateData]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const orderInputRef = useRef<HTMLInputElement>(null);
 
@@ -274,113 +303,20 @@ export default function App() {
     if (!file) return;
 
     setIsAnalyzing(true);
-    const reader = new FileReader();
-    reader.onload = async (evt) => {
-      const startTime = Date.now();
-      try {
-        const bstr = evt.target?.result;
-        const wb = XLSX.read(bstr, { type: 'binary' });
-        const wsname = wb.SheetNames[0];
-        const ws = wb.Sheets[wsname];
-        const rawData: any[][] = XLSX.utils.sheet_to_json(ws, { header: 1 });
-        
-        // 1. Find the real end of data (3 consecutive empty rows)
-        let endRowIndex = rawData.length;
-        let emptyCount = 0;
-        for (let i = 0; i < rawData.length; i++) {
-          const isRowEmpty = !rawData[i] || rawData[i].every(cell => cell === null || cell === undefined || cell === '');
-          if (isRowEmpty) {
-            emptyCount++;
-          } else {
-            emptyCount = 0;
-          }
-          if (emptyCount >= 3) {
-            endRowIndex = i - 2;
-            break;
-          }
-        }
-        const fullData = rawData.slice(0, endRowIndex);
-
-        // 2. Use AI only to detect the column mapping and classification rules
-        const sampleForAI = fullData.slice(0, 60); 
-        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-        const response = await ai.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: `Ты - эксперт по строительным сметам. Твоя задача:
-          1. Определить индексы колонок (от 0): Наименование (nameIdx), Ед.изм. (unitIdx), Кол-во (amountIdx).
-          2. Определить признаки, по которым можно отличить РАБОТУ от МАТЕРИАЛА в колонке "Наименование".
-          (Работы обычно начинаются с глаголов или имеют шифры типа ФЕР/ГЭСН. Материалы - это существительные: бетон, песок, блоки).
-          
-          Верни ТОЛЬКО JSON объект: 
-          {
-            "nameIdx": N, 
-            "unitIdx": N, 
-            "amountIdx": N, 
-            "workKeywords": ["устройство", "монтаж", "прокладка", "разработка"], 
-            "materialKeywords": ["бетон", "раствор", "смесь", "песок", "щебень", "труба", "кабель", "арматура"]
-          }
-          Данные: ${JSON.stringify(sampleForAI)}`,
-          config: {
-            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
-          }
-        });
-
-        let mapping = { 
-          nameIdx: 1, unitIdx: 2, amountIdx: 3, 
-          workKeywords: ["устройство", "монтаж"], 
-          materialKeywords: ["бетон", "песок"] 
-        };
-        try {
-          const jsonMatch = response.text?.match(/\{.*\}/s);
-          if (jsonMatch) mapping = JSON.parse(jsonMatch[0]);
-        } catch (e) {
-          console.error("AI Mapping error");
-        }
-
-        // 3. Fast JS Parsing with Grouping Logic
-        const parsed: any[] = [];
-        let currentWork: any = null;
-
-        fullData.forEach((row, idx) => {
-          const name = String(row[mapping.nameIdx] || '').trim();
-          const unit = String(row[mapping.unitIdx] || '').trim();
-          const amount = String(row[mapping.amountIdx] || '0').trim();
-          const amountNum = parseFloat(amount.replace(',', '.'));
-
-          if (!name || name.length < 5) return;
-
-          const isWork = mapping.workKeywords.some(k => name.toLowerCase().includes(k.toLowerCase())) || 
-                         /^[0-9]{2}\.[0-9]{2}/.test(name) || // Шифры типа 01.01
-                         name.includes('ФЕР') || name.includes('ГЭСН');
-          
-          const isMaterial = mapping.materialKeywords.some(k => name.toLowerCase().includes(k.toLowerCase()));
-
-          if (isWork && !isNaN(amountNum) && amountNum > 0) {
-            if (currentWork) parsed.push(currentWork);
-            currentWork = { 
-              id: idx + 1, 
-              name, 
-              unit, 
-              amount, 
-              materials: [] 
-            };
-          } else if (isMaterial && currentWork) {
-            currentWork.materials.push(`${name} (${amount} ${unit})`);
-          }
-        });
-        if (currentWork) parsed.push(currentWork);
-
-        setPerformanceMetrics(prev => ({ ...prev, estimateParsing: Date.now() - startTime }));
-        setEstimateData(parsed);
-        setEstimateStep('selection');
-      } catch (error) {
-        console.error("Error parsing file:", error);
-        alert("Ошибка при чтении файла.");
-      } finally {
-        setIsAnalyzing(false);
-      }
-    };
-    reader.readAsBinaryString(file);
+    const startTime = Date.now();
+    try {
+      setActDetails(prev => ({ ...prev, workName: '' }));
+      const parsed = await documentService.parseEstimate(file);
+      
+      setPerformanceMetrics(prev => ({ ...prev, estimateParsing: Date.now() - startTime }));
+      setEstimateData(parsed);
+      setEstimateStep('selection');
+    } catch (error) {
+      console.error("Error parsing file:", error);
+      alert("Ошибка при чтении файла.");
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleOrderScan = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -396,32 +332,23 @@ export default function App() {
         reader.readAsDataURL(file);
       });
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: [
-          {
-            inlineData: {
-              mimeType: file.type,
-              data: base64,
-            },
+      const data = await aiService.generateJSON<any>([
+        {
+          inlineData: {
+            mimeType: file.type,
+            data: base64,
           },
-          {
-            text: `Это приказ о назначении ответственных лиц на стройке. 
-            Найди и выдели: 
-            1. Название организации.
-            2. Номер и дату приказа.
-            3. ФИО и должность ответственного за строительный контроль (технадзор).
-            4. ФИО и должность ответственного за производство работ (прораб).
-            Верни данные в формате JSON: {org, orderNum, orderDate, repSk, repWork}.`,
-          },
-        ],
-        config: {
-          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
-        }
-      });
-
-      const data = JSON.parse(response.text?.match(/\{.*\}/s)?.[0] || '{}');
+        },
+        {
+          text: `Это приказ о назначении ответственных лиц на стройке. 
+          Найди и выдели: 
+          1. Название организации.
+          2. Номер и дату приказа.
+          3. ФИО и должность ответственного за строительный контроль (технадзор).
+          4. ФИО и должность ответственного за производство работ (прораб).
+          Верни данные в формате JSON: {org, orderNum, orderDate, repSk, repWork}.`,
+        },
+      ]);
       
       setActDetails(prev => ({
         ...prev,
@@ -446,34 +373,64 @@ export default function App() {
     setIsAnalyzing(true);
     const startTime = Date.now();
     try {
-      const selectedWorks = estimateData.filter(row => selectedRows.includes(row.id));
-      const workToAnalyze = selectedWorks[0]; // Analyze the first selected work for demo
+      const updatedEstimateData = [...estimateData];
+      const selectedWorks = updatedEstimateData.filter(row => selectedRows.includes(row.id));
       
-      // If we already have materials from parsing, use them as context for AI
-      const existingMaterials = workToAnalyze.materials?.join(', ') || '';
+      const newActs: ActDetail[] = [];
 
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: `Ты - эксперт ПТО в строительстве. Выдели из наименования строительной работы основные используемые материалы и укажи для них типичные ГОСТы или сертификаты. 
-        Работа: "${workToAnalyze.name}"
-        ${existingMaterials ? `Уже найденные материалы в смете: ${existingMaterials}` : ''}
-        Ответь в формате: "Материал 1 (ГОСТ/Сертификат), Материал 2 (ГОСТ/Сертификат)". Если материалов нет, напиши "Материалы не требуются".`,
-        config: {
-          thinkingConfig: { thinkingLevel: ThinkingLevel.LOW }
+      for (const work of selectedWorks) {
+        const existingMaterials = work.materials?.join(', ') || '';
+
+        let aiData = { materials: '', nextWorks: '', standards: '' };
+        try {
+          aiData = await aiService.generateJSON<any>(`Ты - эксперт ПТО. Проанализируй работу и предложи данные для АОСР.
+            Работа: "${work.name}"
+            ${existingMaterials ? `Материалы из сметы: ${existingMaterials}` : ''}
+            Верни ТОЛЬКО JSON: {
+              "materials": "Материал (ГОСТ/Сертификат)",
+              "nextWorks": "какая работа обычно идет следующей",
+              "standards": "основной СП или ГОСТ для этой работы"
+            }`);
+        } catch (e) {
+          console.warn(`AI Analysis failed for work: ${work.name}, using fallback`, e);
+          // Fallback logic for materials
+          const materials = work.materials?.length ? work.materials.join(', ') : 'Материалы согласно проекту';
+          aiData = {
+            materials: materials,
+            nextWorks: 'Следующий технологический этап',
+            standards: 'СП 70.13330.2012' // Default standard for general construction
+          };
         }
-      });
+        
+        newActs.push({
+          id: Math.random().toString(36).substr(2, 9),
+          number: (projects.find(p => p.id === activeProjectId)?.acts.length || 0) + newActs.length + 1 + '',
+          workName: work.name,
+          unit: work.unit,
+          amount: work.amount,
+          scheme: `Исполнительная схема №${(projects.find(p => p.id === activeProjectId)?.acts.length || 0) + newActs.length + 1}`,
+          nextWorks: aiData.nextWorks || 'Следующий этап',
+          materials: aiData.materials || 'Материалы не определены',
+          startDate: '01', startMonth: 'марта', startYear: '2026',
+          endDate: '10', endMonth: 'марта', endYear: '2026',
+          standards: aiData.standards || 'СП ...'
+        });
+      }
 
-      const materials = response.text || 'Материалы не определены';
-      setActDetails(prev => ({
-        ...prev,
-        materials: materials
-      }));
+      // Add new acts to current project
+      if (activeProjectId) {
+        setProjects(prev => prev.map(p => 
+          p.id === activeProjectId 
+            ? { ...p, acts: [...p.acts, ...newActs] } 
+            : p
+        ));
+      }
+
       setPerformanceMetrics(prev => ({ ...prev, materialAnalysis: Date.now() - startTime }));
-      setEstimateStep('mapping');
+      setSubView('list'); // Go back to project view to see the register
+      setView('mvp');
     } catch (error) {
       console.error("AI Analysis error:", error);
-      // Fallback to mock if AI fails
       setEstimateStep('mapping');
     } finally {
       setIsAnalyzing(false);
@@ -481,21 +438,20 @@ export default function App() {
   };
 
   const handleStart = () => {
-    if (selectedVector === 4) {
-      setView('analysis');
-    } else if (selectedVector === 3) {
+    if (selectedVector === 3) {
       setView('mvp');
-      setSubView('projects');
+      setSubView('roadmap');
       setEstimateStep('upload');
       setCurrentActIndex(0);
+    } else if (selectedVector === 6 || selectedVector === 7) {
+      setView('mvp');
+      setSubView('future-plan');
+    } else if (selectedVector === 4) {
+      setView('analysis');
     } else if (selectedVector === 1) {
       setView('business');
     } else if (selectedVector === 5) {
       setView('market');
-    } else if (selectedVector === 6) {
-      setView('migration');
-    } else if (selectedVector === 7) {
-      setView('stack');
     } else if (selectedVector === 2) {
       setView('persona');
     }
@@ -510,53 +466,6 @@ export default function App() {
     else setSelectedRows(estimateData.map(r => r.id));
   };
 
-  const bmcData = [
-    {
-      title: "Ключевые партнеры",
-      items: ["Разработчики Гранд-Сметы", "Удостоверяющие центры (ЭЦП)", "СРО и строительные ассоциации", "Органы ГСН (Госстройнадзор)"],
-      icon: <Users className="w-4 h-4" />
-    },
-    {
-      title: "Ключевые активности",
-      items: ["Разработка AI-алгоритмов парсинга", "Автоматизация ОЖР через моб. приложение", "Техподдержка инженеров ПТО", "Обновление под нормативы Минстроя"],
-      icon: <Zap className="w-4 h-4" />
-    },
-    {
-      title: "Ценностное предложение",
-      items: ["АОСР за 30 секунд", "Связь сметы и документов", "Снижение штрафов на 40%", "Освобождение ПТО от рутины", "Прозрачность для Стройнадзора", "Прораб: фотофиксация в 1 клик"],
-      icon: <Target className="w-4 h-4" />
-    },
-    {
-      title: "Отношения с клиентами",
-      items: ["Self-service (SaaS)", "Персональный онбординг", "Сообщество инженеров ПТО", "White-glove сервис для корпоратов", "Вебинары и обучение"],
-      icon: <Users className="w-4 h-4" />
-    },
-    {
-      title: "Сегменты клиентов",
-      items: ["Инженеры ПТО (фриланс/штат)", "Прорабы (полевой контроль)", "Инспекторы ГСН / Технадзор", "Малые и средние застройщики", "Аутсорсинговые компании ПТО"],
-      icon: <Users className="w-4 h-4" />
-    },
-    {
-      title: "Ключевые ресурсы",
-      items: ["Собственная база шаблонов ИД", "Мобильное приложение для прорабов", "Команда (Dev + PropTech эксперты)", "Бренд AI-кофаундера", "Данные для обучения AI"],
-      icon: <Layers className="w-4 h-4" />
-    },
-    {
-      title: "Каналы сбыта",
-      items: ["Прямые продажи", "Партнерки со сметным ПО", "Контент-маркетинг (Telegram для ПТО)", "Профильные выставки", "Сарафанное радио на стройке"],
-      icon: <BarChart3 className="w-4 h-4" />
-    },
-    {
-      title: "Структура издержек",
-      items: ["Разработка и серверы", "Маркетинг и продажи", "Юристы (комплаенс)", "API распознавания текста"],
-      icon: <Briefcase className="w-4 h-4" />
-    },
-    {
-      title: "Потоки доходов",
-      items: ["Гибридная модель: Подписка + Pay-per-doc", "Freemium (3 АОСР в месяц бесплатно)", "Корпоративные лицензии (Unlimited)", "API-интеграция для крупных холдингов"],
-      icon: <BarChart3 className="w-4 h-4" />
-    }
-  ];
 
   const pricingTiers = [
     {
@@ -590,34 +499,76 @@ export default function App() {
       id: 'estimate',
       title: "Сметный модуль (Core)",
       description: "Импорт смет из Excel/XML. Автоматическое создание черновиков АОСР на основе сметных строк.",
-      status: "Priority 1",
+      status: "ready",
       icon: <FileText className="w-5 h-5 text-blue-500" />
+    },
+    {
+      id: 'cert-db',
+      title: "База сертификатов",
+      description: "Автоматический поиск и привязка сертификатов с petrovich.ru и других баз.",
+      status: "planned",
+      icon: <ShieldCheck className="w-5 h-5 text-amber-500" />
     },
     {
       id: 'ojr',
       title: "Цифровой ОЖР",
       description: "Ведение общего журнала работ через мобильное приложение. Фотофиксация и геолокация.",
-      status: "Priority 1",
+      status: "in-progress",
       icon: <HardHat className="w-5 h-5 text-emerald-500" />
     },
     {
       id: 'registry',
       title: "Реестр ИД",
       description: "Автоматическое формирование реестра исполнительной документации и контроль комплектности.",
-      status: "Priority 2",
+      status: "ready",
       icon: <Layers className="w-5 h-5 text-violet-500" />
     },
     {
       id: 'ai',
       title: "AI-валидатор",
-      description: "Проверка документов на соответствие ГОСТ и СНиП с помощью нейросети.",
-      status: "Priority 3 (Future)",
-      icon: <Zap className="w-5 h-5 text-yellow-500" />
+      description: "Автоматическая проверка актов на соответствие СП и ГОСТ с помощью LLM.",
+      status: "ready",
+      icon: <Zap className="w-5 h-5 text-orange-500" />
     }
   ];
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center p-6 pb-24">
+      {/* Navigation Bar */}
+      <div className="max-w-6xl w-full flex justify-between items-center mb-8 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
+        <div className="flex items-center gap-2 font-bold text-slate-900 cursor-pointer" onClick={() => setView('home')}>
+          <HardHat className="w-6 h-6 text-blue-600" />
+          <span>StroyDoc AI</span>
+        </div>
+        <div className="flex items-center gap-4">
+          {isAuthenticated ? (
+            <div className="flex items-center gap-4">
+              <button 
+                onClick={() => setView('profile')}
+                className="flex items-center gap-2 text-slate-600 hover:text-blue-600 font-medium transition-colors"
+              >
+                <UserCheck className="w-5 h-5" />
+                <span>{user?.name || 'Личный кабинет'}</span>
+              </button>
+              <button 
+                onClick={handleLogout}
+                className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                title="Выйти"
+              >
+                <Download className="w-5 h-5 rotate-180" />
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={() => setView('auth')}
+              className="px-4 py-2 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+            >
+              Войти
+            </button>
+          )}
+        </div>
+      </div>
+
       <AnimatePresence mode="wait">
         {view === 'home' ? (
           <motion.div 
@@ -683,6 +634,680 @@ export default function App() {
               </div>
             </div>
           </motion.div>
+        ) : view === 'auth' ? (
+          <motion.div 
+            key="auth"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="max-w-md w-full bg-white p-8 rounded-3xl border border-slate-200 shadow-xl mt-12"
+          >
+            <div className="flex bg-slate-100 p-1 rounded-xl mb-8">
+              <button 
+                onClick={() => setAuthMode('login')}
+                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${authMode === 'login' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Вход
+              </button>
+              <button 
+                onClick={() => setAuthMode('register')}
+                className={`flex-1 py-2 text-sm font-bold rounded-lg transition-all ${authMode === 'register' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                Регистрация
+              </button>
+            </div>
+
+            <div className="text-center space-y-4 mb-8">
+              <div className="inline-flex p-3 bg-blue-50 rounded-2xl text-blue-600">
+                {authMode === 'login' ? <Lock className="w-8 h-8" /> : <UserCheck className="w-8 h-8" />}
+              </div>
+              <h2 className="text-2xl font-bold text-slate-900">
+                {authMode === 'login' ? 'Вход в систему' : 'Создать аккаунт'}
+              </h2>
+              <p className="text-slate-500">
+                {authMode === 'login' ? 'Введите данные для доступа к вашим проектам' : 'Начните автоматизировать ИД прямо сейчас'}
+              </p>
+            </div>
+
+            <form onSubmit={authMode === 'login' ? handleLogin : handleRegister} className="space-y-4">
+              {authMode === 'register' && (
+                <div className="space-y-2">
+                  <label className="text-sm font-medium text-slate-700">Имя и Фамилия</label>
+                  <input 
+                    name="name"
+                    type="text" 
+                    className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Иван Иванов"
+                    required
+                  />
+                </div>
+              )}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Email</label>
+                <input 
+                  name="email"
+                  type="email" 
+                  defaultValue={authMode === 'login' ? "ivan@stroydoc.ai" : ""}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="name@company.com"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-slate-700">Пароль</label>
+                <input 
+                  name="password"
+                  type="password" 
+                  defaultValue={authMode === 'login' ? "password123" : ""}
+                  className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+              <button 
+                type="submit"
+                className="w-full py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/20"
+              >
+                {authMode === 'login' ? 'Войти' : 'Зарегистрироваться'}
+              </button>
+            </form>
+          </motion.div>
+        ) : view === 'profile' ? (
+          <motion.div 
+            key="profile"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="max-w-6xl w-full space-y-8 mt-8"
+          >
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <h2 className="text-3xl font-bold text-slate-900">Личный кабинет</h2>
+                <p className="text-slate-500">Управление вашими актами и проектами</p>
+              </div>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <div className="font-bold text-slate-900">{user?.name}</div>
+                  <div className="text-sm text-slate-500">{user?.email}</div>
+                </div>
+                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold text-xl">
+                  {user?.name?.[0]}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex bg-white p-1 rounded-2xl border border-slate-200 shadow-sm w-fit">
+              <button 
+                onClick={() => {
+                  setProfileTab('projects');
+                  setActiveProjectId(null);
+                  setSubView('projects');
+                }}
+                className={`px-6 py-2 text-sm font-bold rounded-xl transition-all flex items-center gap-2 ${profileTab === 'projects' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                <Briefcase className="w-4 h-4" />
+                Мои проекты
+              </button>
+              <button 
+                onClick={() => setProfileTab('estimates')}
+                className={`px-6 py-2 text-sm font-bold rounded-xl transition-all flex items-center gap-2 ${profileTab === 'estimates' ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-500 hover:text-slate-700'}`}
+              >
+                <Zap className="w-4 h-4" />
+                Сметный модуль
+              </button>
+            </div>
+
+            {profileTab === 'projects' ? (
+          <div className="space-y-8">
+            {activeProject ? (
+              <div className="space-y-8">
+                {/* Project Header & Navigation */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+                  <div className="flex items-center gap-4">
+                    <div className="p-3 bg-blue-600 text-white rounded-2xl shadow-lg shadow-blue-200">
+                      <Building2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <h2 className="text-2xl font-bold text-slate-900">{activeProject.name}</h2>
+                      <div className="flex items-center gap-2 text-slate-500 text-sm">
+                        <MapPin className="w-4 h-4" />
+                        <span>{activeProject.object}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button 
+                      onClick={() => setActiveProjectId(null)}
+                      className="px-4 py-2 text-slate-500 hover:text-slate-900 font-bold text-sm transition-all flex items-center gap-2"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      Все проекты
+                    </button>
+                    <div className="h-8 w-px bg-slate-200 mx-2" />
+                    <button 
+                      onClick={() => setProfileTab('estimates')}
+                      className="px-4 py-2 bg-blue-50 text-blue-600 rounded-xl font-bold text-sm hover:bg-blue-100 transition-all flex items-center gap-2"
+                    >
+                      <Zap className="w-4 h-4" />
+                      Сметный модуль
+                    </button>
+                  </div>
+                </div>
+
+                {/* Project Sub-tabs */}
+                <div className="flex gap-1 p-1 bg-slate-100 rounded-2xl w-fit">
+                  <button 
+                    onClick={() => setSubView('list')}
+                    className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${subView === 'list' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    Реестр актов
+                  </button>
+                  <button 
+                    onClick={() => setSubView('future-plan')} // Reusing for details
+                    className={`px-6 py-2 rounded-xl text-sm font-bold transition-all ${subView === 'future-plan' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  >
+                    Детали и участники
+                  </button>
+                </div>
+
+                {subView === 'list' ? (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="text-slate-400 text-sm font-medium mb-1">Всего актов</div>
+                        <div className="text-3xl font-bold text-slate-900">{activeProject.acts.length}</div>
+                      </div>
+                      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="text-slate-400 text-sm font-medium mb-1">В работе</div>
+                        <div className="text-3xl font-bold text-orange-500">
+                          {activeProject.acts.filter(a => a.status === 'draft').length}
+                        </div>
+                      </div>
+                      <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                        <div className="text-slate-400 text-sm font-medium mb-1">Подписано</div>
+                        <div className="text-3xl font-bold text-emerald-500">
+                          {activeProject.acts.filter(a => a.status === 'signed').length}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Interactive Table */}
+                    <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+                      <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+                        <h3 className="text-lg font-bold text-slate-900">Реестр актов проекта</h3>
+                        <button 
+                          onClick={() => {
+                            setSubView('estimate-detail');
+                            setEstimateStep('upload');
+                          }}
+                          className="px-4 py-2 bg-blue-600 text-white rounded-xl font-bold text-sm hover:bg-blue-700 transition-all flex items-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Добавить акт
+                        </button>
+                      </div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-[11px] border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 uppercase tracking-wider font-bold">
+                              <th className="p-3 border-r border-slate-200 w-10 text-center">№</th>
+                              <th className="p-3 border-r border-slate-200 w-64">Выполненные работы</th>
+                              <th className="p-3 border-r border-slate-200 w-48">Разрешаются работы</th>
+                              <th className="p-3 border-r border-slate-200 w-24">Начало</th>
+                              <th className="p-3 border-r border-slate-200 w-24">Конец</th>
+                              <th className="p-3 border-r border-slate-200 w-32">Статус</th>
+                              <th className="p-3 text-center">Действия</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {activeProject.acts.map((act) => (
+                              <tr key={act.id} className="hover:bg-blue-50/30 transition-colors group">
+                                <td className="p-2 border-r border-slate-200 text-center font-bold text-slate-700">
+                                  {act.number}
+                                </td>
+                                <td className="p-2 border-r border-slate-200">
+                                  <div className="font-medium text-slate-900">{act.workName}</div>
+                                </td>
+                                <td className="p-2 border-r border-slate-200 text-slate-500 italic">
+                                  {act.nextWorks}
+                                </td>
+                                <td className="p-2 border-r border-slate-200 text-slate-600">
+                                  {act.startDate} {act.startMonth}
+                                </td>
+                                <td className="p-2 border-r border-slate-200 text-slate-600">
+                                  {act.endDate} {act.endMonth}
+                                </td>
+                                <td className="p-2 border-r border-slate-200">
+                                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold
+                                    ${act.status === 'signed' ? 'bg-emerald-50 text-emerald-700' : 'bg-orange-50 text-orange-700'}`}
+                                  >
+                                    {act.status === 'signed' ? 'Подписан' : 'Черновик'}
+                                  </span>
+                                </td>
+                                <td className="p-2 text-center">
+                                  <div className="flex items-center justify-center gap-1">
+                                    <button 
+                                      onClick={() => {
+                                        setActDetails(prev => ({
+                                          ...prev,
+                                          materials: act.materials,
+                                          workName: act.workName,
+                                          projectDoc: act.standards,
+                                          nextWorks: act.nextWorks,
+                                          startDate: act.startDate,
+                                          startMonth: act.startMonth,
+                                          endDate: act.endDate,
+                                          endMonth: act.endMonth
+                                        }));
+                                        setEstimateStep('preview');
+                                        setSubView('estimate-detail');
+                                      }}
+                                      className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                                    >
+                                      <FileText className="w-4 h-4" />
+                                    </button>
+                                    <button 
+                                      onClick={() => deleteActFromProject(act.id)}
+                                      className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </div>
+                                </td>
+                              </tr>
+                            ))}
+                            {activeProject.acts.length === 0 && (
+                              <tr>
+                                <td colSpan={7} className="p-12 text-center text-slate-400 italic">
+                                  В этом проекте пока нет актов. Добавьте их из сметы или вручную.
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    {/* Organizations Card */}
+                    <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                      <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                        <Building2 className="w-5 h-5 text-blue-600" />
+                        Организации проекта
+                      </h3>
+                      <div className="space-y-4">
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Застройщик</div>
+                          <div className="font-bold text-slate-900">{activeProject.developer.name}</div>
+                          <div className="text-xs text-slate-500 mt-1">{activeProject.developer.sro}</div>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Генподрядчик</div>
+                          <div className="font-bold text-slate-900">{activeProject.contractor.name}</div>
+                          <div className="text-xs text-slate-500 mt-1">{activeProject.contractor.sro}</div>
+                        </div>
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                          <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Проектировщик</div>
+                          <div className="font-bold text-slate-900">{activeProject.designer.name}</div>
+                          <div className="text-xs text-slate-500 mt-1">{activeProject.designer.sro}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Participants Card */}
+                    <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6">
+                      <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                        <Users className="w-5 h-5 text-blue-600" />
+                        Ответственные лица
+                      </h3>
+                      <div className="space-y-4">
+                        <div className="flex items-start gap-4 p-4 hover:bg-slate-50 rounded-2xl transition-colors">
+                          <div className="w-10 h-10 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center font-bold shrink-0">
+                            {activeProject.participants.repDeveloper.split(' ').pop()?.charAt(0) || 'З'}
+                          </div>
+                          <div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase">Технадзор Заказчика</div>
+                            <div className="font-bold text-slate-900">{activeProject.participants.repDeveloper}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-4 p-4 hover:bg-slate-50 rounded-2xl transition-colors">
+                          <div className="w-10 h-10 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center font-bold shrink-0">
+                            {activeProject.participants.repContractor.split(' ').pop()?.charAt(0) || 'П'}
+                          </div>
+                          <div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase">Прораб Подрядчика</div>
+                            <div className="font-bold text-slate-900">{activeProject.participants.repContractor}</div>
+                          </div>
+                        </div>
+                        <div className="flex items-start gap-4 p-4 hover:bg-slate-50 rounded-2xl transition-colors">
+                          <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center font-bold shrink-0">
+                            {activeProject.participants.repContractorSk.split(' ').pop()?.charAt(0) || 'Т'}
+                          </div>
+                          <div>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase">Технадзор Подрядчика</div>
+                            <div className="font-bold text-slate-900">{activeProject.participants.repContractorSk}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : subView === 'create-project' ? (
+              <div className="space-y-8">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-2">
+                    <h2 className="text-3xl font-bold text-slate-900">Создание нового проекта</h2>
+                    <p className="text-slate-600">Заполните основные данные объекта и реквизиты участников.</p>
+                  </div>
+                  <button 
+                    onClick={() => setSubView('projects')}
+                    className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Назад к списку
+                  </button>
+                </div>
+
+                <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm space-y-8">
+                  {/* Basic Info */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                      <Info className="w-5 h-5 text-blue-600" />
+                      Основная информация
+                    </h3>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Название проекта (для списка)</label>
+                        <input 
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                          placeholder='Напр: ЖК "Горизонт" - Корпус 1'
+                          value={newProject.name}
+                          onChange={(e) => setNewProject({...newProject, name: e.target.value})}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Полный адрес объекта (для АОСР)</label>
+                        <textarea 
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all h-24"
+                          placeholder="г. Москва, ул. Строителей, д. 10, корп. 2..."
+                          value={newProject.object}
+                          onChange={(e) => setNewProject({...newProject, object: e.target.value})}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Organizations */}
+                  <div className="space-y-6 pt-6 border-t border-slate-100">
+                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                      <Building2 className="w-5 h-5 text-blue-600" />
+                      Организации и реквизиты
+                    </h3>
+                    
+                    <div className="space-y-6">
+                      {/* Developer */}
+                      <div className="p-6 bg-slate-50 rounded-2xl space-y-4">
+                        <h4 className="font-bold text-slate-700">Застройщик / Техзаказчик</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <input 
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none"
+                            placeholder="Название компании"
+                            value={newProject.developer?.name}
+                            onChange={(e) => setNewProject({...newProject, developer: {...newProject.developer!, name: e.target.value}})}
+                          />
+                          <input 
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none"
+                            placeholder="СРО (номер, ОГРН)"
+                            value={newProject.developer?.sro}
+                            onChange={(e) => setNewProject({...newProject, developer: {...newProject.developer!, sro: e.target.value}})}
+                          />
+                          <textarea 
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none md:col-span-2 h-20"
+                            placeholder="Реквизиты (ОГРН, ИНН, Адрес, Тел)"
+                            value={newProject.developer?.requisites}
+                            onChange={(e) => setNewProject({...newProject, developer: {...newProject.developer!, requisites: e.target.value}})}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Contractor */}
+                      <div className="p-6 bg-slate-50 rounded-2xl space-y-4">
+                        <h4 className="font-bold text-slate-700">Генподрядчик</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <input 
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none"
+                            placeholder="Название компании"
+                            value={newProject.contractor?.name}
+                            onChange={(e) => setNewProject({...newProject, contractor: {...newProject.contractor!, name: e.target.value}})}
+                          />
+                          <input 
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none"
+                            placeholder="СРО (номер, ОГРН)"
+                            value={newProject.contractor?.sro}
+                            onChange={(e) => setNewProject({...newProject, contractor: {...newProject.contractor!, sro: e.target.value}})}
+                          />
+                          <textarea 
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none md:col-span-2 h-20"
+                            placeholder="Реквизиты (ОГРН, ИНН, Адрес, Тел)"
+                            value={newProject.contractor?.requisites}
+                            onChange={(e) => setNewProject({...newProject, contractor: {...newProject.contractor!, requisites: e.target.value}})}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Designer */}
+                      <div className="p-6 bg-slate-50 rounded-2xl space-y-4">
+                        <h4 className="font-bold text-slate-700">Проектировщик</h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <input 
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none"
+                            placeholder="Название компании"
+                            value={newProject.designer?.name}
+                            onChange={(e) => setNewProject({...newProject, designer: {...newProject.designer!, name: e.target.value}})}
+                          />
+                          <input 
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none"
+                            placeholder="СРО (номер, ОГРН)"
+                            value={newProject.designer?.sro}
+                            onChange={(e) => setNewProject({...newProject, designer: {...newProject.designer!, sro: e.target.value}})}
+                          />
+                          <textarea 
+                            className="w-full p-3 bg-white border border-slate-200 rounded-xl outline-none md:col-span-2 h-20"
+                            placeholder="Реквизиты (ОГРН, ИНН, Адрес, Тел)"
+                            value={newProject.designer?.requisites}
+                            onChange={(e) => setNewProject({...newProject, designer: {...newProject.designer!, requisites: e.target.value}})}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Participants */}
+                  <div className="space-y-6 pt-6 border-t border-slate-100">
+                    <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                      <Users className="w-5 h-5 text-blue-600" />
+                      Участники и подписи
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Представитель Заказчика (Технадзор)</label>
+                        <input 
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                          placeholder="Должность, ФИО, НРС, Приказ..."
+                          value={newProject.participants?.repDeveloper}
+                          onChange={(e) => setNewProject({...newProject, participants: {...newProject.participants!, repDeveloper: e.target.value}})}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Представитель Подрядчика (Прораб)</label>
+                        <input 
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                          placeholder="Должность, ФИО, Приказ..."
+                          value={newProject.participants?.repContractor}
+                          onChange={(e) => setNewProject({...newProject, participants: {...newProject.participants!, repContractor: e.target.value}})}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Представитель Подрядчика (Технадзор)</label>
+                        <input 
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                          placeholder="Должность, ФИО, НРС, Приказ..."
+                          value={newProject.participants?.repContractorSk}
+                          onChange={(e) => setNewProject({...newProject, participants: {...newProject.participants!, repContractorSk: e.target.value}})}
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Представитель Проектировщика (Авторский надзор)</label>
+                        <input 
+                          className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none"
+                          placeholder="Должность, ФИО, Приказ..."
+                          value={newProject.participants?.repDesigner}
+                          onChange={(e) => setNewProject({...newProject, participants: {...newProject.participants!, repDesigner: e.target.value}})}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-8 border-t border-slate-100 flex justify-end">
+                    <button 
+                      onClick={handleCreateProject}
+                      disabled={!newProject.name || !newProject.object}
+                      className="px-10 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-xl hover:bg-blue-700 disabled:opacity-50 transition-all"
+                    >
+                      Создать проект и начать работу
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                  <div className="space-y-2">
+                    <h2 className="text-3xl font-bold text-slate-900">Мои проекты</h2>
+                    <p className="text-slate-600">Управляйте вашими строительными объектами и участниками.</p>
+                  </div>
+                  <button 
+                    onClick={() => setSubView('create-project')}
+                    className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-all flex items-center gap-2"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Новый проект
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {projects.map((project) => (
+                    <div 
+                      key={project.id} 
+                      onClick={() => {
+                        setActiveProjectId(project.id);
+                        setProfileTab('projects');
+                        setSubView('list');
+                      }}
+                      className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:border-blue-400 hover:shadow-md transition-all cursor-pointer group"
+                    >
+                      <div className="flex items-center justify-between mb-4">
+                        <div className="p-3 bg-blue-50 rounded-2xl text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                          <Building2 className="w-6 h-6" />
+                        </div>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                          Создан: {project.createdAt}
+                        </div>
+                      </div>
+                      <h3 className="text-xl font-bold text-slate-900 mb-2">{project.name}</h3>
+                      <p className="text-sm text-slate-500 line-clamp-2 mb-4">{project.object}</p>
+                      <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
+                        <div className="flex items-center gap-1">
+                          <FileText className="w-3 h-3" />
+                          <span>{project.acts.length} актов</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Users className="w-3 h-3" />
+                          <span>{Object.keys(project.participants).length} участников</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : profileTab === 'estimates' ? (
+          <div className="bg-white p-12 rounded-3xl border border-slate-200 text-center space-y-8 shadow-sm">
+            <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+              <Zap className="w-12 h-12" />
+            </div>
+            <div className="max-w-lg mx-auto space-y-4">
+              <h3 className="text-3xl font-bold text-slate-900">Сметный модуль AI</h3>
+              <p className="text-slate-600 leading-relaxed">
+                Загрузите смету в формате Excel или PDF. Наш ИИ автоматически распознает виды работ, 
+                сгруппирует их и подготовит черновики АОСР с привязкой к материалам и сертификатам.
+              </p>
+            </div>
+            
+            {activeProject && (
+              <div className="p-4 bg-blue-50/50 rounded-2xl border border-blue-100 max-w-md mx-auto flex items-center gap-4 text-left">
+                <div className="p-2 bg-white rounded-xl text-blue-600 shadow-sm">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="text-[10px] font-bold text-blue-400 uppercase">Активный проект</div>
+                  <div className="font-bold text-slate-900">{activeProject.name}</div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+              <button 
+                onClick={() => {
+                  setEstimateStep('upload');
+                }}
+                className="w-full sm:w-auto px-10 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-xl shadow-blue-200 hover:bg-blue-700 hover:-translate-y-1 transition-all flex items-center justify-center gap-2"
+              >
+                <Upload className="w-5 h-5" />
+                Загрузить смету
+              </button>
+              <button 
+                onClick={() => {
+                  setActDetails(prev => ({ ...prev, workName: '', materials: '' }));
+                  setEstimateStep('preview');
+                }}
+                className="w-full sm:w-auto px-10 py-4 bg-white text-slate-700 font-bold rounded-2xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+              >
+                <Plus className="w-5 h-5" />
+                Создать вручную
+              </button>
+            </div>
+
+            <div className="pt-8 border-t border-slate-100 grid grid-cols-1 md:grid-cols-3 gap-8 text-left">
+              <div className="space-y-2">
+                <div className="font-bold text-slate-900 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  Умный маппинг
+                </div>
+                <p className="text-xs text-slate-500">Автоматическое сопоставление работ со справочником материалов.</p>
+              </div>
+              <div className="space-y-2">
+                <div className="font-bold text-slate-900 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  Группировка работ
+                </div>
+                <p className="text-xs text-slate-500">ИИ объединяет мелкие позиции сметы в логические этапы для АОСР.</p>
+              </div>
+              <div className="space-y-2">
+                <div className="font-bold text-slate-900 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
+                  Контроль дат
+                </div>
+                <p className="text-xs text-slate-500">Проверка пересечений периодов работ и дат поставки материалов.</p>
+              </div>
+            </div>
+          </div>
+        ) : null}
+      </motion.div>
         ) : view === 'analysis' ? (
           <motion.div 
             key="analysis"
@@ -1524,6 +2149,9 @@ export default function App() {
                 if (subView === 'estimate-detail') setSubView('list');
                 else if (subView === 'list') setSubView('projects');
                 else if (subView === 'create-project') setSubView('projects');
+                else if (subView === 'certificates') setSubView('roadmap');
+                else if (subView === 'projects') setSubView('roadmap');
+                else if (subView === 'future-plan') setView('home');
                 else setView('home');
               }}
               className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors mb-4"
@@ -1531,10 +2159,540 @@ export default function App() {
               <ArrowLeft className="w-4 h-4" />
               {subView === 'estimate-detail' ? 'Назад к списку функций' : 
                subView === 'create-project' ? 'Назад к списку проектов' :
-               subView === 'list' ? 'Назад к выбору проекта' : 'Назад к выбору вектора'}
+               subView === 'list' ? 'Назад к выбору проекта' : 
+               subView === 'projects' ? 'Назад к дорожной карте' : 
+               subView === 'certificates' ? 'Назад к дорожной карте' : 
+               subView === 'future-plan' ? 'Назад к выбору вектора' : 'Назад к выбору вектора'}
             </button>
 
-            {subView === 'projects' ? (
+            {subView === 'roadmap' ? (
+              <div className="space-y-8">
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-bold text-slate-900">Функционал MVP</h2>
+                  <p className="text-slate-600">Приоритетные направления разработки для первой версии продукта.</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {mvpFeatures.map(feature => (
+                    <div 
+                      key={feature.id}
+                      className={`p-6 rounded-2xl border-2 transition-all ${
+                        feature.status === 'ready' 
+                          ? 'border-blue-100 bg-blue-50/30' 
+                          : 'border-slate-100 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-start justify-between mb-4">
+                        <div className={`p-3 rounded-xl ${
+                          feature.status === 'ready' ? 'bg-blue-500 text-white' : 'bg-slate-100 text-slate-500'
+                        }`}>
+                          {feature.icon}
+                        </div>
+                        <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${
+                          feature.status === 'ready' ? 'bg-blue-100 text-blue-700' :
+                          feature.status === 'in-progress' ? 'bg-amber-100 text-amber-700' :
+                          'bg-slate-100 text-slate-500'
+                        }`}>
+                          {feature.status === 'ready' ? 'Готово' : 
+                           feature.status === 'in-progress' ? 'В разработке' : 'В планах'}
+                        </span>
+                      </div>
+                      <h3 className="text-lg font-bold text-slate-900 mb-2">{feature.title}</h3>
+                      <p className="text-sm text-slate-500 mb-6">{feature.description}</p>
+                      
+                      {feature.id === 'cert-db' && (
+                        <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 mb-4">
+                          <div className="flex items-center gap-2 text-xs font-bold text-slate-700 mb-2">
+                            <Zap className="w-3 h-3 text-amber-500" />
+                            Стратегия парсинга (Petrovich.ru):
+                          </div>
+                          <ul className="text-[11px] text-slate-500 space-y-1 list-disc pl-4">
+                            <li>Использование Puppeteer/Playwright для обхода анти-бот защиты.</li>
+                            <li>Маппинг товаров по артикулам и наименованиям.</li>
+                            <li>AI-экстракция данных из PDF (номер, дата, срок действия).</li>
+                            <li>Автоматическая подстановка в АОСР при совпадении материала.</li>
+                          </ul>
+                        </div>
+                      )}
+
+                      <button 
+                        disabled={feature.status !== 'ready' && feature.id !== 'cert-db'}
+                        onClick={() => {
+                          if (feature.id === 'cert-db') setSubView('certificates');
+                          else if (feature.status === 'ready') {
+                            setView('profile');
+                            setProfileTab(feature.id === 'estimate' ? 'estimates' : 'acts');
+                          }
+                        }}
+                        className={`w-full py-3 rounded-xl font-bold text-sm transition-all ${
+                          (feature.status === 'ready' || feature.id === 'cert-db')
+                            ? 'bg-blue-600 text-white hover:bg-blue-700 shadow-md'
+                            : 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                        }`}
+                      >
+                        {(feature.status === 'ready' || feature.id === 'cert-db') ? 'Запустить модуль' : 'Скоро'}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : subView === 'future-plan' ? (
+              <div className="space-y-12 pb-20">
+                <div className="space-y-4">
+                  <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-full text-sm font-bold">
+                    <ShieldCheck className="w-4 h-4" />
+                    Векторы 6 и 7: Инфраструктура и Стек
+                  </div>
+                  <h2 className="text-4xl font-black text-slate-900 tracking-tight">Гайд для фаундера: От идеи до Enterprise</h2>
+                  <p className="text-xl text-slate-600 max-w-3xl">Как внедрять сложные технологии, если ты не программист, используя AI Studio как своего технического директора.</p>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                  <div className="lg:col-span-2 space-y-8">
+                    {/* AI Studio Prompting Guide */}
+                    <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+                      <h3 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                        <MessageSquare className="w-6 h-6 text-indigo-600" />
+                        Как "программировать" через AI Studio
+                      </h3>
+                      
+                      <div className="space-y-4">
+                        <div className="p-5 bg-indigo-50 rounded-2xl border border-indigo-100">
+                          <h4 className="font-bold text-indigo-900 mb-2 flex items-center gap-2">
+                            <Zap className="w-4 h-4" />
+                            Золотое правило промпта:
+                          </h4>
+                          <p className="text-sm text-indigo-800 italic">
+                            "Роль + Контекст + Задача + Ограничения"
+                          </p>
+                          <div className="mt-3 p-3 bg-white rounded-lg text-xs font-mono text-slate-600 border border-indigo-200">
+                            "Ты — Senior Fullstack разработчик. Мы строим SaaS для ИД. Добавь в личный кабинет таблицу со списком всех актов проекта, где можно менять статус (Черновик/Подписан). Используй Tailwind для стилей."
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                            <h5 className="font-bold text-slate-900 text-sm mb-1">Если ошибка:</h5>
+                            <p className="text-xs text-slate-500">Просто скопируй текст ошибки и напиши: "Исправь это. Ошибка возникает при нажатии на кнопку X".</p>
+                          </div>
+                          <div className="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                            <h5 className="font-bold text-slate-900 text-sm mb-1">Если нужно новое:</h5>
+                            <p className="text-xs text-slate-500">"Добавь новый раздел 'Склады', где будет список материалов. Сделай его похожим на раздел 'Проекты'."</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Technical Architecture for Non-Programmers */}
+                    <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+                      <h3 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                        <Cpu className="w-6 h-6 text-emerald-600" />
+                        Твоя целевая архитектура (РФ-стек)
+                      </h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {[
+                          { title: "Frontend", tech: "React + Vite", desc: "То, что видит пользователь. Быстро и красиво.", icon: <Layout className="w-5 h-5" /> },
+                          { title: "Backend", tech: "Node.js (NestJS)", desc: "Мозг системы. Обработка данных и логика.", icon: <Cpu className="w-5 h-5" /> },
+                          { title: "Database", tech: "PostgreSQL", desc: "Память. Надежное хранение всех документов.", icon: <Database className="w-5 h-5" /> }
+                        ].map((item, i) => (
+                          <div key={i} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 text-center">
+                            <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center mx-auto mb-3 text-slate-600">
+                              {item.icon}
+                            </div>
+                            <h4 className="font-bold text-slate-900 text-sm">{item.title}</h4>
+                            <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider mb-2">{item.tech}</div>
+                            <p className="text-xs text-slate-500 leading-relaxed">{item.desc}</p>
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="mt-6 p-4 bg-emerald-50 rounded-2xl border border-emerald-100 flex items-start gap-3">
+                        <ShieldCheck className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
+                        <div>
+                          <h4 className="font-bold text-emerald-900 text-sm">Почему это РФ-стек?</h4>
+                          <p className="text-xs text-emerald-700 leading-relaxed">
+                            Все эти технологии поддерживаются в **Yandex Cloud**. База данных PostgreSQL разворачивается в облаке Яндекса одним кликом, а сервера (Backend) работают на их мощностях в дата-центрах РФ.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Enterprise Architecture Section */}
+                    <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-2xl border border-slate-800">
+                      <div className="flex items-center justify-between mb-8">
+                        <div>
+                          <h3 className="text-2xl font-bold mb-2 flex items-center gap-2">
+                            <GitBranch className="w-6 h-6 text-blue-400" />
+                            Профессиональная Архитектура (Enterprise)
+                          </h3>
+                          <p className="text-slate-400 text-sm">Принципы микросервисного подхода для бесшовного масштабирования.</p>
+                        </div>
+                        <div className="px-3 py-1 bg-blue-500/20 text-blue-400 rounded-full text-[10px] font-bold uppercase tracking-widest border border-blue-500/30">
+                          Senior Level
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="space-y-6">
+                          <div className="p-5 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors cursor-default group">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                                <Server className="w-4 h-4" />
+                              </div>
+                              <h4 className="font-bold text-sm">API Gateway (Единый вход)</h4>
+                            </div>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                              Все запросы от фронтенда идут в одну точку. Шлюз сам распределяет их по сервисам, проверяет авторизацию и защищает от атак.
+                            </p>
+                          </div>
+
+                          <div className="p-5 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors cursor-default group">
+                            <div className="flex items-center gap-3 mb-3">
+                              <div className="w-8 h-8 bg-emerald-500/20 rounded-lg flex items-center justify-center text-emerald-400 group-hover:scale-110 transition-transform">
+                                <Activity className="w-4 h-4" />
+                              </div>
+                              <h4 className="font-bold text-sm">Event Bus (Шина событий)</h4>
+                            </div>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                              Сервисы общаются асинхронно. "Смета загружена" &rarr; Событие в шину &rarr; AI-сервис подхватил &rarr; Уведомление улетело пользователю.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="bg-white/5 rounded-3xl p-6 border border-white/10">
+                          <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-4">Разделение на микросервисы (Домены):</h4>
+                          <div className="space-y-3">
+                            {[
+                              { label: "Auth Service", desc: "Управление пользователями и правами.", color: "bg-violet-500" },
+                              { label: "Project Service", desc: "Логика строек, контрагентов и объектов.", color: "bg-blue-500" },
+                              { label: "Doc Service", desc: "Генерация АОСР, ОЖР и печатных форм.", color: "bg-emerald-500" },
+                              { label: "AI Engine", desc: "Промпт-инжиниринг и связь с LLM.", color: "bg-amber-500" },
+                              { label: "Storage Service", desc: "Облачное хранилище чертежей и фото.", color: "bg-rose-500" }
+                            ].map((svc, sIdx) => (
+                              <div key={sIdx} className="flex items-start gap-3 p-2 rounded-lg hover:bg-white/5 transition-colors">
+                                <div className={`w-1.5 h-1.5 rounded-full ${svc.color} mt-1.5 shrink-0`} />
+                                <div>
+                                  <div className="text-xs font-bold">{svc.label}</div>
+                                  <div className="text-[10px] text-slate-500">{svc.desc}</div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-8 pt-6 border-t border-white/10">
+                        <div className="flex items-start gap-4">
+                          <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center shrink-0 shadow-lg">
+                            <Workflow className="w-6 h-6 text-white" />
+                          </div>
+                          <div>
+                            <h4 className="font-bold text-sm mb-1">Clean Architecture (Чистая архитектура)</h4>
+                            <p className="text-xs text-slate-400 leading-relaxed">
+                              Внутри каждого сервиса мы разделяем код на слои: **API** (внешний мир), **Domain** (бизнес-логика) и **Infrastructure** (база данных). Это позволяет заменить базу данных или AI-модель, не переписывая основную логику приложения.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* New Refactoring Task Card */}
+                      <div className="mt-8 p-6 bg-blue-600 rounded-2xl shadow-xl border border-blue-500 relative overflow-hidden group">
+                        <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform">
+                          <Code2 className="w-20 h-20" />
+                        </div>
+                        <div className="relative z-10">
+                          <div className="flex items-center justify-between mb-4">
+                            <h4 className="text-lg font-bold flex items-center gap-2">
+                              <FileCode className="w-5 h-5" />
+                              Задание для AI Studio: Рефакторинг Архитектуры
+                            </h4>
+                            <div className="px-2 py-0.5 bg-white/20 rounded text-[10px] font-bold uppercase">Prompt Ready</div>
+                          </div>
+                          <p className="text-sm text-blue-100 mb-6 max-w-xl">
+                            Скопируй этот промпт и вставь его в чат, чтобы AI начал перестраивать приложение под профессиональную структуру.
+                          </p>
+                          
+                          <div className="bg-slate-900/50 backdrop-blur-sm rounded-xl p-4 border border-white/10 mb-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-[10px] font-bold text-blue-300 uppercase tracking-widest">Промпт для архитектора:</span>
+                              <button 
+                                onClick={() => {
+                                  const promptText = `Ты — Senior Software Architect. Наша задача — перевести текущий прототип StroyDoc AI на архитектуру "Модульного монолита" с элементами Clean Architecture. 
+1. Раздели код на логические модули: Auth (авторизация), Projects (управление стройками), Documents (генерация ИД), AI-Engine (связь с LLM).
+2. В каждом модуле выдели слои: Domain (бизнес-логика и типы), Infrastructure (работа с внешними API и файлами), Application/API (обработка запросов).
+3. Создай единую шину событий (Event Bus) для асинхронного взаимодействия между модулями.
+4. Весь UI должен обращаться к модулям через строго определенные интерфейсы (Services/Gateways).
+Начни с создания структуры папок и выноса логики парсинга смет в отдельный модуль "Documents".`;
+                                  navigator.clipboard.writeText(promptText);
+                                  alert("Промпт для рефакторинга скопирован!");
+                                }}
+                                className="text-[10px] text-blue-200 hover:text-white flex items-center gap-1 transition-colors"
+                              >
+                                <Copy className="w-3 h-3" />
+                                Копировать
+                              </button>
+                            </div>
+                            <p className="text-[11px] font-mono text-blue-50 leading-relaxed italic line-clamp-2">
+                              "Ты — Senior Software Architect. Наша задача — перевести текущий прототип StroyDoc AI на архитектуру 'Модульного монолита'..."
+                            </p>
+                          </div>
+                          
+                          <div className="flex items-center gap-2 text-[10px] text-blue-200">
+                            <Info className="w-3 h-3" />
+                            <span>Это действие создаст фундамент для бесшовного удаления или замены любого модуля в будущем.</span>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Step-by-Step Implementation */}
+                    <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
+                      <h3 className="text-2xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+                        <ListChecks className="w-6 h-6 text-blue-600" />
+                        Твой план действий (Step-by-Step)
+                      </h3>
+                      
+                      <div className="space-y-10 relative before:absolute before:left-[15px] before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
+                        {[
+                          {
+                            step: "Шаг 1: Лендинг и Сбор данных (Tilda)",
+                            desc: "Твоя задача — получить первые контакты клиентов.",
+                            tasks: [
+                              "Собери лендинг на Tilda (тариф Personal).",
+                              "В AI Studio напиши: 'Создай серверный роут /api/tilda-lead, который принимает POST запрос и сохраняет данные в массив'.",
+                              "В Tilda укажи URL твоего приложения в поле Webhook."
+                            ],
+                            prompt: "Напиши API эндпоинт на Express для приема заявок с Тильды. Данные должны приходить в формате JSON и сохраняться в файл leads.json.",
+                            icon: <Globe className="w-4 h-4" />,
+                            color: "bg-blue-500"
+                          },
+                          {
+                            step: "Шаг 2: База данных (Yandex Cloud)",
+                            desc: "Переход от файлов к промышленной базе данных.",
+                            tasks: [
+                              "Создай Managed Service for PostgreSQL в консоли Yandex Cloud.",
+                              "Получи строку подключения (Connection String).",
+                              "В AI Studio напиши: 'Подключи библиотеку Prisma или TypeORM и настрой связь с БД PostgreSQL'."
+                            ],
+                            prompt: "Настрой подключение к PostgreSQL через Prisma. Создай модель Project с полями id, name, object и модель Act с полями id, workName, status.",
+                            icon: <Database className="w-4 h-4" />,
+                            color: "bg-emerald-500"
+                          },
+                          {
+                            step: "Шаг 3: Личный кабинет и Роли",
+                            desc: "Безопасность и разграничение прав доступа.",
+                            tasks: [
+                              "Попроси AI: 'Добавь страницу /login и функционал регистрации'.",
+                              "Добавь поле 'role' пользователю (admin, engineer, foreman).",
+                              "Настрой фильтрацию: 'Показывай проекты только того пользователя, который вошел в систему'."
+                            ],
+                            prompt: "Реализуй авторизацию через JWT. Создай защищенный роут /api/my-projects, который возвращает только проекты текущего пользователя.",
+                            icon: <Lock className="w-4 h-4" />,
+                            color: "bg-violet-500"
+                          },
+                          {
+                            step: "Шаг 4: Интеграция YandexGPT",
+                            desc: "Замена зарубежного AI на отечественный.",
+                            tasks: [
+                              "Получи Folder ID и API Key в Yandex Cloud.",
+                              "Попроси AI: 'Напиши сервис для работы с YandexGPT API вместо OpenAI'.",
+                              "Протестируй анализ смет через российскую модель."
+                            ],
+                            prompt: "Создай функцию callYandexGPT(prompt), которая отправляет запрос в YandexGPT API. Используй её для анализа материалов в смете.",
+                            icon: <Cloud className="w-4 h-4" />,
+                            color: "bg-indigo-600"
+                          }
+                        ].map((item, idx) => (
+                          <div key={idx} className="relative pl-10">
+                            <div className={`absolute left-0 top-0 w-8 h-8 ${item.color} text-white rounded-full flex items-center justify-center z-10 shadow-lg`}>
+                              {item.icon}
+                            </div>
+                            <div className="space-y-1">
+                              <h4 className="font-bold text-slate-900">{item.step}</h4>
+                              <p className="text-xs text-slate-400 italic">{item.desc}</p>
+                            </div>
+                            
+                            <div className="mt-4 space-y-3">
+                              <div className="space-y-2">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Задачи для тебя:</span>
+                                <ul className="space-y-1.5">
+                                  {item.tasks.map((task, tIdx) => (
+                                    <li key={tIdx} className="text-xs text-slate-600 flex items-start gap-2">
+                                      <div className="w-1 h-1 rounded-full bg-slate-300 mt-1.5 shrink-0" />
+                                      {task}
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                              
+                              <div className="p-3 bg-slate-900 rounded-xl border border-slate-800">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Промпт для AI Studio:</span>
+                                  <button 
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(item.prompt);
+                                      alert("Промпт скопирован!");
+                                    }}
+                                    className="text-[10px] text-slate-400 hover:text-white flex items-center gap-1 transition-colors"
+                                  >
+                                    <Share2 className="w-3 h-3" />
+                                    Копировать
+                                  </button>
+                                </div>
+                                <p className="text-xs text-slate-300 font-mono leading-relaxed">{item.prompt}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-6">
+                    <div className="bg-indigo-900 text-white p-8 rounded-3xl shadow-xl relative overflow-hidden">
+                      <div className="absolute top-0 right-0 p-4 opacity-10">
+                        <BookOpen className="w-24 h-24" />
+                      </div>
+                      <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <Zap className="w-5 h-5 text-amber-400" />
+                        Чек-лист Фаундера
+                      </h3>
+                      <div className="space-y-4 relative z-10">
+                        {[
+                          { text: "Купить домен .ru", done: true },
+                          { text: "Завести почту на домене", done: false },
+                          { text: "Открыть кабинет в Yandex Cloud", done: false },
+                          { text: "Сделать 10 звонков клиентам", done: false },
+                          { text: "Собрать 3 примера реальных смет", done: true }
+                        ].map((check, cIdx) => (
+                          <div key={cIdx} className="flex items-center gap-3 text-sm">
+                            <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${check.done ? 'bg-emerald-500 border-emerald-500' : 'border-indigo-400'}`}>
+                              {check.done && <CheckCircle2 className="w-3 h-3 text-white" />}
+                            </div>
+                            <span className={check.done ? 'text-indigo-300 line-through' : 'text-indigo-100'}>{check.text}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100">
+                      <h4 className="font-bold text-amber-900 mb-2 flex items-center gap-2">
+                        <Info className="w-4 h-4" />
+                        Твоя роль в проекте:
+                      </h4>
+                      <p className="text-sm text-amber-800 leading-relaxed">
+                        Ты — **Архитектор смыслов**. Не трать время на изучение синтаксиса кода. Твоя задача:
+                        <br /><br />
+                        1. Понимать, как данные текут от прораба к акту.
+                        <br />
+                        2. Знать, какие поля должны быть в базе.
+                        <br />
+                        3. Уметь объяснить AI, какой результат ты хочешь видеть.
+                      </p>
+                    </div>
+
+                    <div className="bg-slate-900 text-white p-8 rounded-3xl shadow-lg border border-slate-800">
+                      <h4 className="font-bold mb-4 flex items-center gap-2">
+                        <Settings className="w-5 h-5 text-blue-400" />
+                        Технический стек (РФ)
+                      </h4>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-400">Облако:</span>
+                          <span className="font-bold">Yandex Cloud</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-400">База данных:</span>
+                          <span className="font-bold">PostgreSQL 15</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-400">AI Модель:</span>
+                          <span className="font-bold">YandexGPT 3</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-slate-400">ОС Сервера:</span>
+                          <span className="font-bold">Astra Linux</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : subView === 'certificates' ? (
+              <div className="space-y-8">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+                  <div className="space-y-2">
+                    <h2 className="text-3xl font-bold text-slate-900">База сертификатов</h2>
+                    <p className="text-slate-600">Автоматический поиск и хранение паспортов качества и сертификатов.</p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={async () => {
+                        setIsParsingCerts(true);
+                        await sleep(3000); // Simulate parsing
+                        const newCert = {
+                          id: Math.random().toString(36).substr(2, 9),
+                          name: 'Труба стальная электросварная d57x3.5',
+                          provider: 'Петрович',
+                          date: new Date().toLocaleDateString(),
+                          file: 'cert_pipe_57.pdf',
+                          status: 'active'
+                        };
+                        setCertificates(prev => [newCert, ...prev]);
+                        setIsParsingCerts(false);
+                      }}
+                      disabled={isParsingCerts}
+                      className="px-6 py-3 bg-amber-500 text-white font-bold rounded-xl shadow-lg hover:bg-amber-600 transition-all flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {isParsingCerts ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                      Парсить Petrovich.ru
+                    </button>
+                    <button className="px-6 py-3 bg-blue-600 text-white font-bold rounded-xl shadow-lg hover:bg-blue-700 transition-all flex items-center gap-2">
+                      <Plus className="w-4 h-4" />
+                      Добавить вручную
+                    </button>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 uppercase tracking-wider font-bold text-[10px]">
+                        <th className="p-4">Наименование материала</th>
+                        <th className="p-4">Источник</th>
+                        <th className="p-4">Дата загрузки</th>
+                        <th className="p-4">Файл</th>
+                        <th className="p-4 text-center">Действия</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {certificates.map(cert => (
+                        <tr key={cert.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="p-4 font-medium text-slate-900">{cert.name}</td>
+                          <td className="p-4 text-slate-500 text-sm">{cert.provider}</td>
+                          <td className="p-4 text-slate-500 text-sm">{cert.date}</td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-2 text-blue-600 text-sm font-medium">
+                              <FileText className="w-4 h-4" />
+                              {cert.file}
+                            </div>
+                          </td>
+                          <td className="p-4 text-center">
+                            <button className="p-2 text-slate-400 hover:text-blue-600 transition-colors">
+                              <Download className="w-4 h-4" />
+                            </button>
+                            <button className="p-2 text-slate-400 hover:text-rose-600 transition-colors">
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ) : subView === 'projects' ? (
               <div className="space-y-8">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
                   <div className="space-y-2">
@@ -1589,7 +2747,7 @@ export default function App() {
                       <div className="flex items-center gap-4 text-xs font-medium text-slate-400">
                         <div className="flex items-center gap-1">
                           <FileText className="w-3 h-3" />
-                          <span>12 актов</span>
+                          <span>{project.acts.length} актов</span>
                         </div>
                         <div className="flex items-center gap-1">
                           <Users className="w-3 h-3" />
@@ -1789,64 +2947,157 @@ export default function App() {
                 </div>
               </div>
             ) : subView === 'list' ? (
-              <>
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-                  <div className="space-y-2">
+              <div className="space-y-6">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <div className="space-y-1">
                     <div className="flex items-center gap-2 text-blue-600 font-bold text-sm">
                       <Building2 className="w-4 h-4" />
                       <span>{activeProject?.name}</span>
                     </div>
-                    <h2 className="text-3xl font-bold text-slate-900">Функционал MVP</h2>
-                    <p className="text-slate-600">Определяем "джентльменский набор" функций для быстрого запуска.</p>
+                    <h2 className="text-3xl font-bold text-slate-900">Реестр актов (АОСР)</h2>
+                    <p className="text-slate-500 text-sm">Управляйте перечнем актов, редактируйте данные и выгружайте документы.</p>
                   </div>
-                  <div className="px-4 py-2 bg-blue-100 text-blue-700 rounded-full text-sm font-bold">
-                    Стадия: Проектирование
+                  <div className="flex gap-3">
+                    <button 
+                      onClick={() => {
+                        setSubView('estimate-detail');
+                        setEstimateStep('upload');
+                      }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg font-bold text-sm hover:bg-blue-700 transition-all flex items-center gap-2"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Добавить из сметы
+                    </button>
+                    <button className="px-4 py-2 bg-slate-900 text-white rounded-lg font-bold text-sm hover:bg-slate-800 transition-all flex items-center gap-2">
+                      <Download className="w-4 h-4" />
+                      Экспорт реестра
+                    </button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {mvpFeatures.map((feature) => (
-                    <div key={feature.title} className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-center gap-3 mb-4">
-                        <div className="p-2 bg-slate-50 rounded-lg">
-                          {feature.icon}
-                        </div>
-                        <h3 className="font-bold text-slate-900">{feature.title}</h3>
-                      </div>
-                      <p className="text-sm text-slate-500 mb-4 leading-relaxed">
-                        {feature.description}
-                      </p>
-                      <div className="flex items-center justify-between">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-md ${
-                          feature.status.includes('Priority 1') ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
-                        }`}>
-                          {feature.status}
-                        </span>
-                        {feature.id === 'estimate' && (
-                          <button 
-                            onClick={() => setSubView('estimate-detail')}
-                            className="text-xs font-semibold text-blue-600 hover:underline"
-                          >
-                            Настроить логику
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="bg-emerald-50 border border-emerald-200 p-6 rounded-2xl space-y-4">
-                  <div className="flex items-center gap-2 text-emerald-700 font-bold">
-                    <CheckCircle2 className="w-5 h-5" />
-                    <span>Рекомендация Кофаундера</span>
+                {/* Interactive Register Table */}
+                <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-sm">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-left text-[11px] border-collapse">
+                      <thead>
+                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-400 uppercase tracking-wider font-bold">
+                          <th className="p-3 border-r border-slate-200 w-10 text-center">№</th>
+                          <th className="p-3 border-r border-slate-200 w-64">Выполненные работы</th>
+                          <th className="p-3 border-r border-slate-200 w-32">Схема</th>
+                          <th className="p-3 border-r border-slate-200 w-48">Разрешаются работы</th>
+                          <th className="p-3 border-r border-slate-200 w-64">Материалы и сертификаты</th>
+                          <th className="p-3 border-r border-slate-200 w-24">Начало</th>
+                          <th className="p-3 border-r border-slate-200 w-24">Конец</th>
+                          <th className="p-3 border-r border-slate-200 w-32">Норматив</th>
+                          <th className="p-3 text-center">Действия</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-200">
+                        {activeProject?.acts.map((act) => (
+                          <tr key={act.id} className="hover:bg-blue-50/30 transition-colors group">
+                            <td className="p-2 border-r border-slate-200">
+                              <input 
+                                className="w-full bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1 text-center"
+                                value={act.number}
+                                onChange={(e) => updateActInProject(act.id, 'number', e.target.value)}
+                              />
+                            </td>
+                            <td className="p-2 border-r border-slate-200">
+                              <textarea 
+                                rows={2}
+                                className="w-full bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1 resize-none"
+                                value={act.workName}
+                                onChange={(e) => updateActInProject(act.id, 'workName', e.target.value)}
+                              />
+                            </td>
+                            <td className="p-2 border-r border-slate-200">
+                              <input 
+                                className="w-full bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1"
+                                value={act.scheme}
+                                onChange={(e) => updateActInProject(act.id, 'scheme', e.target.value)}
+                              />
+                            </td>
+                            <td className="p-2 border-r border-slate-200">
+                              <textarea 
+                                rows={2}
+                                className="w-full bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1 resize-none"
+                                value={act.nextWorks}
+                                onChange={(e) => updateActInProject(act.id, 'nextWorks', e.target.value)}
+                              />
+                            </td>
+                            <td className="p-2 border-r border-slate-200">
+                              <div className="relative group/cert">
+                                <textarea 
+                                  rows={2}
+                                  className="w-full bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1 resize-none pr-6"
+                                  value={act.materials}
+                                  onChange={(e) => updateActInProject(act.id, 'materials', e.target.value)}
+                                />
+                                <button 
+                                  onClick={() => setSubView('certificates')}
+                                  className="absolute right-0 top-0 p-1 text-amber-500 opacity-0 group-hover/cert:opacity-100 transition-opacity"
+                                  title="Найти сертификат в базе"
+                                >
+                                  <Search className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </td>
+                            <td className="p-2 border-r border-slate-200">
+                              <div className="flex gap-1">
+                                <input className="w-4 bg-transparent outline-none text-center" value={act.startDate} onChange={(e) => updateActInProject(act.id, 'startDate', e.target.value)} />
+                                <input className="w-12 bg-transparent outline-none" value={act.startMonth} onChange={(e) => updateActInProject(act.id, 'startMonth', e.target.value)} />
+                              </div>
+                            </td>
+                            <td className="p-2 border-r border-slate-200">
+                              <div className="flex gap-1">
+                                <input className="w-4 bg-transparent outline-none text-center" value={act.endDate} onChange={(e) => updateActInProject(act.id, 'endDate', e.target.value)} />
+                                <input className="w-12 bg-transparent outline-none" value={act.endMonth} onChange={(e) => updateActInProject(act.id, 'endMonth', e.target.value)} />
+                              </div>
+                            </td>
+                            <td className="p-2 border-r border-slate-200">
+                              <input 
+                                className="w-full bg-transparent outline-none focus:bg-white focus:ring-1 focus:ring-blue-400 rounded px-1"
+                                value={act.standards}
+                                onChange={(e) => updateActInProject(act.id, 'standards', e.target.value)}
+                              />
+                            </td>
+                            <td className="p-2 text-center">
+                              <button 
+                                onClick={() => {
+                                  setActDetails(prev => ({
+                                    ...prev,
+                                    materials: act.materials,
+                                    workName: act.workName,
+                                    projectDoc: act.standards,
+                                    nextWorks: act.nextWorks,
+                                    startDate: act.startDate,
+                                    startMonth: act.startMonth,
+                                    endDate: act.endDate,
+                                    endMonth: act.endMonth
+                                  }));
+                                  setEstimateStep('preview');
+                                  setSubView('estimate-detail');
+                                }}
+                                className="p-1.5 text-blue-600 hover:bg-blue-100 rounded-lg transition-colors"
+                                title="Открыть акт"
+                              >
+                                <FileText className="w-4 h-4" />
+                              </button>
+                              <button 
+                                onClick={() => deleteActFromProject(act.id)}
+                                className="p-1.5 text-rose-600 hover:bg-rose-100 rounded-lg transition-colors"
+                                title="Удалить"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
-                  <p className="text-sm text-emerald-600 leading-relaxed">
-                    Для первой версии (MVP) я рекомендую сфокусироваться **только на Priority 1**. 
-                    Связка "Смета → АОСР" и мобильный ОЖР — это то, за что пользователи начнут платить сразу. 
-                    AI-валидатор и сложные реестры оставим для версии 1.1.
-                  </p>
                 </div>
-              </>
+              </div>
             ) : (
               <motion.div 
                 initial={{ opacity: 0, y: 10 }}
@@ -2391,9 +3642,9 @@ export default function App() {
                           <div className="space-y-1">
                             <div className="font-bold">1. К освидетельствованию предъявлены следующие работы:</div>
                             <div className="border-b border-black min-h-[2.4em] px-2 bg-yellow-50/50 font-bold">
-                              {selectedRows.length > 0 ? (
+                              {actDetails.workName || (selectedRows.length > 0 ? (
                                 estimateData.find(r => r.id === selectedRows[currentActIndex])?.name
-                              ) : 'Работы не выбраны'}
+                              ) : 'Работы не выбраны')}
                             </div>
                             <div className="text-[6px] text-center italic leading-none">(наименование скрытых работ)</div>
                           </div>
