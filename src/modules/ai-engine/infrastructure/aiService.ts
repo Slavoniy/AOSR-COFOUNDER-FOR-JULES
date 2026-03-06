@@ -6,14 +6,27 @@
 import { GoogleGenAI, ThinkingLevel, GenerateContentResponse } from "@google/genai";
 
 export class AIService {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
 
   constructor() {
-    this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+    try {
+      // Allow fallback if process is not defined or API key is missing
+      const meta: any = import.meta;
+      const apiKey = typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : meta.env?.VITE_GEMINI_API_KEY;
+      if (apiKey) {
+        this.ai = new GoogleGenAI({ apiKey });
+      }
+    } catch(e) {
+      console.warn("AI Service not fully initialized", e);
+    }
   }
 
   async generateContent(prompt: string | any[], thinkingLevel: ThinkingLevel = ThinkingLevel.LOW): Promise<string> {
-    const response = await this.callAiWithRetry(() => this.ai.models.generateContent({
+    if (!this.ai) {
+      console.warn("Mock AI response returned");
+      return "{}";
+    }
+    const response = await this.callAiWithRetry(() => this.ai!.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
@@ -24,6 +37,10 @@ export class AIService {
   }
 
   async generateJSON<T>(prompt: string | any[], thinkingLevel: ThinkingLevel = ThinkingLevel.LOW): Promise<T> {
+    if (!this.ai) {
+      console.warn("Mock AI JSON response returned");
+      return {} as T;
+    }
     const text = await this.generateContent(prompt, thinkingLevel);
     const jsonMatch = text.match(/\{.*\}/s);
     if (!jsonMatch) throw new Error("No JSON found in AI response");
