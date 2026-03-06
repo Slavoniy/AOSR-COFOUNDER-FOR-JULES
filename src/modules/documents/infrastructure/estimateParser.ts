@@ -44,8 +44,8 @@ export class EstimateParser {
           }
           const fullData = rawData.slice(0, endRowIndex);
 
-          // 2. Use AI to detect column mapping and classification rules
-          // Try to heuristically determine default mapping by scanning header rows (first 15 rows)
+          // 2. Используем ИИ для определения индексов колонок и правил классификации
+          // Пытаемся эвристически определить дефолтные индексы по заголовкам (первые 15 строк)
           const headerRows = fullData.slice(0, 15);
           let heuristicNameIdx = 1;
           let heuristicUnitIdx = 2;
@@ -64,9 +64,6 @@ export class EstimateParser {
               } else if (cellValue.includes('единица') || cellValue.includes('ед. изм') || cellValue.includes('измерения')) {
                 heuristicUnitIdx = colIdx;
               } else if (cellValue.includes('количество') || cellValue.includes('объем') || cellValue.includes('кол-во')) {
-                // If there are multiple amount columns, we might prefer the first one found or we can let the user pick.
-                // For now, we'll assign it to the first matching col if not already set,
-                // or if it explicitly says 'до изменений'.
                 if (heuristicAmountIdx === 3 || cellValue.includes('до изменений')) {
                     heuristicAmountIdx = colIdx;
                 }
@@ -101,7 +98,7 @@ export class EstimateParser {
             const jsonStr = responseText.replace(/```json|```/g, '').trim();
             const parsedMapping = JSON.parse(jsonStr);
 
-            // Validate and fallback for array fields
+            // Проверка полей
             mapping = {
                 nameIdx: typeof parsedMapping.nameIdx === 'number' ? parsedMapping.nameIdx : mapping.nameIdx,
                 unitIdx: typeof parsedMapping.unitIdx === 'number' ? parsedMapping.unitIdx : mapping.unitIdx,
@@ -110,7 +107,7 @@ export class EstimateParser {
                 materialKeywords: Array.isArray(parsedMapping.materialKeywords) ? parsedMapping.materialKeywords : mapping.materialKeywords
             };
           } catch (e) {
-            console.warn("AI Mapping failed, using defaults", e);
+            console.warn("Ошибка классификации ИИ, используем значения по умолчанию", e);
           }
 
           // 3. Fast JS Parsing with Grouping Logic
