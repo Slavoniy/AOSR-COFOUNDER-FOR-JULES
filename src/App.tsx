@@ -221,8 +221,7 @@ export default function App() {
         repDesigner: project.participants.repDesigner,
         repSubcontractor: project.participants.repSubcontractor
       }));
-    } catch (err) {
-      console.error(err);
+    } catch {
       alert('Ошибка создания проекта');
     }
   };
