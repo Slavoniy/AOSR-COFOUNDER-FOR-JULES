@@ -44,9 +44,40 @@ export class EstimateParser {
           }
           const fullData = rawData.slice(0, endRowIndex);
 
-          // 2. Use AI to detect column mapping and classification rules
+          // 2. Используем ИИ для определения индексов колонок и правил классификации
+          // Пытаемся эвристически определить дефолтные индексы по заголовкам (первые 15 строк)
+          const headerRows = fullData.slice(0, 15);
+          let heuristicNameIdx = 1;
+          let heuristicUnitIdx = 2;
+          let heuristicAmountIdx = 3;
+
+          for (let rowIdx = 0; rowIdx < headerRows.length; rowIdx++) {
+            const row = headerRows[rowIdx];
+            if (!row || !Array.isArray(row)) continue;
+
+            for (let colIdx = 0; colIdx < row.length; colIdx++) {
+              const cellValue = String(row[colIdx] || '').toLowerCase().trim();
+              if (!cellValue) continue;
+
+              if (cellValue.includes('наименование') || cellValue.includes('видов работ')) {
+                heuristicNameIdx = colIdx;
+              } else if (cellValue.includes('единица') || cellValue.includes('ед. изм') || cellValue.includes('измерения')) {
+                heuristicUnitIdx = colIdx;
+              } else if (cellValue.includes('количество') || cellValue.includes('объем') || cellValue.includes('кол-во')) {
+                if (heuristicAmountIdx === 3 || cellValue.includes('до изменений')) {
+                    heuristicAmountIdx = colIdx;
+                }
+              }
+            }
+          }
+
           const sampleForAI = fullData.slice(0, 60); 
-          let mapping;
+          let mapping: any = {
+            nameIdx: heuristicNameIdx, unitIdx: heuristicUnitIdx, amountIdx: heuristicAmountIdx,
+            workKeywords: ["устройство", "монтаж", "прокладка", "разработка", "демонтаж", "разборка", "установка", "перетирка", "насечка", "отбивка"],
+            materialKeywords: ["бетон", "раствор", "смесь", "песок", "щебень", "труба", "кабель", "арматура", "мусор", "плинтус", "плитка", "линолеум", "стяжка"]
+          };
+
           try {
             const prompt = `Ты - эксперт по строительным сметам. Твоя задача:
             1. Определить индексы колонок (от 0): Наименование (nameIdx), Ед.изм. (unitIdx), Кол-во (amountIdx).
@@ -65,22 +96,26 @@ export class EstimateParser {
             
             const responseText = await aiService.generateContent(prompt);
             const jsonStr = responseText.replace(/```json|```/g, '').trim();
-            mapping = JSON.parse(jsonStr);
-          } catch (e) {
-            console.warn("AI Mapping failed, using defaults", e);
-            mapping = { 
-              nameIdx: 1, unitIdx: 2, amountIdx: 3, 
-              workKeywords: ["устройство", "монтаж", "прокладка", "разработка"], 
-              materialKeywords: ["бетон", "раствор", "смесь", "песок", "щебень", "труба", "кабель", "арматура"] 
+            const parsedMapping = JSON.parse(jsonStr);
+
+            // Проверка полей
+            mapping = {
+                nameIdx: typeof parsedMapping.nameIdx === 'number' ? parsedMapping.nameIdx : mapping.nameIdx,
+                unitIdx: typeof parsedMapping.unitIdx === 'number' ? parsedMapping.unitIdx : mapping.unitIdx,
+                amountIdx: typeof parsedMapping.amountIdx === 'number' ? parsedMapping.amountIdx : mapping.amountIdx,
+                workKeywords: Array.isArray(parsedMapping.workKeywords) ? parsedMapping.workKeywords : mapping.workKeywords,
+                materialKeywords: Array.isArray(parsedMapping.materialKeywords) ? parsedMapping.materialKeywords : mapping.materialKeywords
             };
+          } catch (e) {
+            console.warn("Ошибка классификации ИИ, используем значения по умолчанию", e);
           }
 
           // 3. Fast JS Parsing with Grouping Logic
           const results: EstimateRow[] = [];
           let currentWork: any = null;
 
-          const lowerWorkKeywords = mapping.workKeywords.map((k: string) => k.toLowerCase());
-          const lowerMaterialKeywords = mapping.materialKeywords.map((k: string) => k.toLowerCase());
+          const lowerWorkKeywords = (mapping.workKeywords || []).map((k: string) => k.toLowerCase());
+          const lowerMaterialKeywords = (mapping.materialKeywords || []).map((k: string) => k.toLowerCase());
 
           fullData.forEach((row, idx) => {
             const name = String(row[mapping.nameIdx] || '').trim();
