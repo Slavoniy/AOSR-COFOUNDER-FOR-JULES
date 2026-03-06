@@ -79,6 +79,9 @@ export class EstimateParser {
           const results: EstimateRow[] = [];
           let currentWork: any = null;
 
+          const lowerWorkKeywords = mapping.workKeywords.map((k: string) => k.toLowerCase());
+          const lowerMaterialKeywords = mapping.materialKeywords.map((k: string) => k.toLowerCase());
+
           fullData.forEach((row, idx) => {
             const name = String(row[mapping.nameIdx] || '').trim();
             const unit = String(row[mapping.unitIdx] || '').trim();
@@ -87,11 +90,13 @@ export class EstimateParser {
 
             if (!name || name.length < 5) return;
 
-            const isWork = mapping.workKeywords.some((k: string) => name.toLowerCase().includes(k.toLowerCase())) || 
+            const nameLower = name.toLowerCase();
+
+            const isWork = lowerWorkKeywords.some((k: string) => nameLower.includes(k)) ||
                            /^[0-9]{2}\.[0-9]{2}/.test(name) || // Шифры типа 01.01
                            name.includes('ФЕР') || name.includes('ГЭСН');
             
-            const isMaterial = mapping.materialKeywords.some((k: string) => name.toLowerCase().includes(k.toLowerCase()));
+            const isMaterial = lowerMaterialKeywords.some((k: string) => nameLower.includes(k));
 
             if (isWork && !isNaN(amountNum) && amountNum > 0) {
               if (currentWork) results.push(currentWork);
