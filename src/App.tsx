@@ -237,37 +237,91 @@ export default function App() {
     return 'Материалы не определены (требуется ручной ввод)';
   };
 
+
+  const handleDownloadDocx = async () => {
+    const docxUtils = await import('./utils/docxUtils').catch(() => import('./utils/docxUtils'));
+
+    // Derived values as requested:
+    // zakazchik2: only name from zakazchik1
+    const zakazchik2 = actDetails.zakazchik1.split(',').pop()?.trim() || actDetails.zakazchik1;
+    // stroiteli21: only name from stroiteli11
+    const stroiteli21 = actDetails.stroiteli11.split(',').pop()?.trim() || actDetails.stroiteli11;
+    // stroiteli22: only name from stroiteli12
+    const stroiteli22 = actDetails.stroiteli12.split(',').pop()?.trim() || actDetails.stroiteli12;
+    // projectirovshik2: only name from projectirovshik1
+    const projectirovshik2 = actDetails.projectirovshik1.split(',').pop()?.trim() || actDetails.projectirovshik1;
+    // stroiteli32: only name from stroiteli3
+    const stroiteli32 = actDetails.stroiteli3.split(',').pop()?.trim() || actDetails.stroiteli3;
+
+    // stroiteli (short company name) "оставить только название компании"
+    // Usually it's the first part before the comma
+    const stroiteliShort = actDetails.stroiteli.split(',')[0]?.trim() || actDetails.stroiteli;
+
+    const data = {
+      ...actDetails,
+      D1: actDetails.startDate,
+      M1: actDetails.startMonth,
+      Y1: actDetails.startYear,
+      D2: actDetails.endDate,
+      M2: actDetails.endMonth,
+      Y2: actDetails.endYear,
+      D: actDetails.date,
+      M: actDetails.month,
+      Y: actDetails.year,
+      N: actDetails.copies,
+      DOP: actDetails.apps,
+      rabota: actDetails.workName || actDetails.project, // Fallback
+      project: actDetails.projectDoc,
+      material: actDetails.materials,
+      SNIP: actDetails.standards,
+      Next: actDetails.nextWorks,
+      '№': `${actDetails.numberPrefix}${currentActIndex !== undefined ? currentActIndex + 1 : 1}`,
+
+      // Derived fields
+      zakazchik2,
+      stroiteli21,
+      stroiteli22,
+      projectirovshik2,
+      stroiteli32,
+
+      // Overwrite stroiteli with short for the specific tag in docx if it was separate, but DOCX only has 'stroiteli'.
+      // If docx uses {{stroiteli}} for both full and short, replacing it might affect both.
+      // But the docx only has {{stroiteli}} tag.
+      // We will leave it as actDetails.stroiteli. The user will need to adjust the docx if they want both full and short via different tags.
+    };
+
+    docxUtils.generateDocx('/aosr_template.docx', data, `АОСР_${data['№'].replace(/\//g, '_')}.docx`);
+  };
+
   const [actDetails, setActDetails] = useState({
     numberPrefix: "12/ПТО-",
     date: "28",
     month: "февраля",
     year: "2026",
     object: "Жилой комплекс \"Горизонт\", Корпус 1, г. Москва, ул. Строителей, 25",
-    developer: "ООО \"ГлавСтройИнвест\", ОГРН 1234567890123, ИНН 7701234567, 123456, г. Москва, ул. Ленина, д. 1, тел. +7 (495) 123-45-67",
-    developerSro: "Член СРО \"Альянс Строителей\", ОГРН СРО 1027700000000",
-    contractor: "ООО \"СпецМонтажСтрой\", ОГРН 9876543210987, ИНН 7705554433, г. Москва, ул. Профсоюзная, 10",
-    contractorSro: "Член СРО \"Строительный Стандарт\", ОГРН СРО 1037700000000",
-    designer: "ООО \"ПроектЦентр\", ОГРН 1112223334445, ИНН 7709998877, г. Москва, наб. Академика Туполева, 15",
-    designerSro: "Член СРО \"Проектировщики России\", ОГРН СРО 1047700000000",
-    repDeveloper: "Инженер СК, Иванов Иван Иванович, НРС С-77-123456, Приказ №45 от 10.01.2026",
-    repContractor: "Производитель работ, Петров Петр Петрович, Приказ №12 от 15.01.2026",
-    repContractorSk: "Специалист СК, Сидоров Сидор Сидорович, НРС С-77-654321, Приказ №8 от 12.01.2026",
-    repDesigner: "ГИП, Кузнецов Алексей Сергеевич, Приказ №2 от 05.01.2026, ООО \"ПроектЦентр\"",
-    repSubcontractor: "Мастер, Васильев Игорь Николаевич, Приказ №3 от 01.02.2026",
+    zakazchik: "ООО \"ГлавСтройИнвест\", ОГРН 1234567890123, ИНН 7701234567, 123456, г. Москва, ул. Ленина, д. 1, тел. +7 (495) 123-45-67",
+    stroiteli: "ООО \"СпецМонтажСтрой\", ОГРН 9876543210987, ИНН 7705554433, г. Москва, ул. Профсоюзная, 10",
+    projectirovshik: "ООО \"ПроектЦентр\", ОГРН 1112223334445, ИНН 7709998877, г. Москва, наб. Академика Туполева, 15",
+    zakazchik1: "Инженер СК, Иванов Иван Иванович, НРС С-77-123456, Приказ №45 от 10.01.2026",
+    stroiteli11: "Производитель работ, Петров Петр Петрович, Приказ №12 от 15.01.2026",
+    stroiteli12: "Специалист СК, Сидоров Сидор Сидорович, НРС С-77-654321, Приказ №8 от 12.01.2026",
+    projectirovshik1: "ГИП, Кузнецов Алексей Сергеевич, Приказ №2 от 05.01.2026, ООО \"ПроектЦентр\"",
+    stroiteli3: "Мастер, Васильев Игорь Николаевич, Приказ №3 от 01.02.2026",
     workName: "Разработка грунта в траншеях",
     projectDoc: "Шифр 2024-05-КЖ, лист 12, Раздел 4 \"Конструктивные решения\"",
     materials: "Бетон B25 W6 F150 (Сертификат соответствия №098765), Арматура А500С (Паспорт качества №1122)",
-    docs: "Исполнительная схема №5, результаты испытаний бетона (протокол №44)",
-    startDate: "01",
+    shema: "Исполнительная схема №5",
+    ispitaniya: "результаты испытаний бетона (протокол №44)",
+    startDate: "25",
     startMonth: "февраля",
     startYear: "2026",
-    endDate: "15",
+    endDate: "28",
     endMonth: "февраля",
     endYear: "2026",
-    standards: "СП 70.13330.2012 \"Несущие и ограждающие конструкции\", проектная документация",
-    nextWorks: "Устройство опалубки перекрытия на отм. +3.000",
+    standards: "СП 70.13330.2012 Несущие и ограждающие конструкции",
+    nextWorks: "Устройство гидроизоляции",
     copies: "3",
-    apps: "Реестр исполнительной документации №1"
+    apps: "Паспорта и сертификаты на материалы, исполнительные схемы, протоколы испытаний"
   });
 
   // Estimate Module State
@@ -2680,11 +2734,7 @@ export default function App() {
                         <div className="space-y-1">
                           <div className="flex items-baseline gap-2">
                             <span className="whitespace-nowrap">Объект капитального строительства</span>
-                            <input 
-                              className="flex-1 border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50" 
-                              value={actDetails.object}
-                              onChange={(e) => setActDetails({...actDetails, object: e.target.value})}
-                            />
+                            <textarea rows={2} className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none leading-tight" value={actDetails.object} onChange={(e) => setActDetails({...actDetails, object: e.target.value})} />
                           </div>
                           <div className="text-[6px] text-center italic leading-none">
                             (наименование объекта капитального строительства в соответствии с проектной документацией, почтовый или строительный адрес объекта капитального строительства)
@@ -2696,18 +2746,15 @@ export default function App() {
                           <div className="font-bold leading-tight">
                             Застройщик, технический заказчик, лицо, ответственное за эксплуатацию здания, сооружения, или региональный оператор
                           </div>
-                          <textarea 
-                            rows={2}
-                            className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none" 
-                            value={actDetails.developer}
-                            onChange={(e) => setActDetails({...actDetails, developer: e.target.value})}
+                          <textarea rows={3} className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none" value={actDetails.zakazchik}
+                            onChange={(e) => setActDetails({...actDetails, zakazchik: e.target.value})}
                           />
                           <div className="text-[6px] text-center italic leading-none">
                             (фамилия, имя, отчество (последнее - при наличии), адрес места жительства, ОГРНИП, ИНН индивидуального предпринимателя, полное и (или) сокращенное наименование, ОГРН, ИНН, адрес юридического лица в пределах его нахождения, телефон или факс,
                           </div>
                           <input 
                             className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50" 
-                            value={actDetails.developerSro}
+                            value={actDetails.zakazchikSro}
                             onChange={(e) => setActDetails({...actDetails, developerSro: e.target.value})}
                           />
                           <div className="text-[6px] text-center italic leading-none">
@@ -2727,8 +2774,8 @@ export default function App() {
                           <textarea 
                             rows={1}
                             className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none" 
-                            value={actDetails.contractor}
-                            onChange={(e) => setActDetails({...actDetails, contractor: e.target.value})}
+                            value={actDetails.stroiteli}
+                            onChange={(e) => setActDetails({...actDetails, stroiteli: e.target.value})}
                           />
                           <div className="text-[6px] text-center italic leading-none">
                             (фамилия, имя, отчество (последнее - при наличии), адрес места жительства, ОГРНИП, ИНН индивидуального предпринимателя,
@@ -2739,7 +2786,7 @@ export default function App() {
                           </div>
                           <input 
                             className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50" 
-                            value={actDetails.contractorSro}
+                            value={actDetails.stroiteliSro}
                             onChange={(e) => setActDetails({...actDetails, contractorSro: e.target.value})}
                           />
                           <div className="text-[6px] text-center italic leading-none">
@@ -2755,8 +2802,8 @@ export default function App() {
                           <textarea 
                             rows={1}
                             className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none" 
-                            value={actDetails.designer}
-                            onChange={(e) => setActDetails({...actDetails, designer: e.target.value})}
+                            value={actDetails.projectirovshik}
+                            onChange={(e) => setActDetails({...actDetails, projectirovshik: e.target.value})}
                           />
                           <div className="text-[6px] text-center italic leading-none">
                             (фамилия, имя, отчество (последнее - при наличии), адрес места жительства, ОГРНИП, ИНН индивидуального предпринимателя,
@@ -2767,7 +2814,7 @@ export default function App() {
                           </div>
                           <input 
                             className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50" 
-                            value={actDetails.designerSro}
+                            value={actDetails.projectirovshikSro}
                             onChange={(e) => setActDetails({...actDetails, designerSro: e.target.value})}
                           />
                           <div className="text-[6px] text-center italic leading-none">
@@ -2814,8 +2861,8 @@ export default function App() {
                             <textarea 
                               rows={2}
                               className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none" 
-                              value={actDetails.repDeveloper}
-                              onChange={(e) => setActDetails({...actDetails, repDeveloper: e.target.value})}
+                              value={actDetails.zakazchik1}
+                              onChange={(e) => setActDetails({...actDetails, zakazchik1: e.target.value})}
                             />
                             <div className="text-[6px] text-center italic leading-none">
                               (должность (при наличии), фамилия, инициалы, идентификационный номер в национальном реестре специалистов в области строительства (за исключением случаев, когда членство в саморегулируемых организациях в области строительства, реконструкции, капитального ремонта объектов капитального строительства не требуется), реквизиты распорядительного документа, подтверждающего полномочия,
@@ -2834,8 +2881,8 @@ export default function App() {
                             <textarea 
                               rows={1}
                               className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none" 
-                              value={actDetails.repContractor}
-                              onChange={(e) => setActDetails({...actDetails, repContractor: e.target.value})}
+                              value={actDetails.stroiteli11}
+                              onChange={(e) => setActDetails({...actDetails, stroiteli11: e.target.value})}
                             />
                             <div className="text-[6px] text-center italic leading-none">
                               (должность (при наличии), фамилия, инициалы, реквизиты распорядительного документа, подтверждающего полномочия)
@@ -2850,8 +2897,8 @@ export default function App() {
                             <textarea 
                               rows={1}
                               className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none" 
-                              value={actDetails.repContractorSk}
-                              onChange={(e) => setActDetails({...actDetails, repContractorSk: e.target.value})}
+                              value={actDetails.stroiteli12}
+                              onChange={(e) => setActDetails({...actDetails, stroiteli12: e.target.value})}
                             />
                             <div className="text-[6px] text-center italic leading-none">
                               (должность (при наличии), фамилия, инициалы, идентификационный номер в национальном реестре специалистов в области строительства (за исключением случаев, когда членство в саморегулируемых организациях в области строительства, реконструкции, капитального ремонта объектов капитального строительства не требуется), реквизиты распорядительного документа, подтверждающего полномочия)
@@ -2866,8 +2913,8 @@ export default function App() {
                             <textarea 
                               rows={1}
                               className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none" 
-                              value={actDetails.repDesigner}
-                              onChange={(e) => setActDetails({...actDetails, repDesigner: e.target.value})}
+                              value={actDetails.projectirovshik1}
+                              onChange={(e) => setActDetails({...actDetails, projectirovshik1: e.target.value})}
                             />
                             <div className="text-[6px] text-center italic leading-none">
                               (должность (при наличии), фамилия, инициалы, реквизиты распорядительного документа, подтверждающего полномочия, с указанием полного и (или) сокращенного наименования, ОГРН, ИНН, адреса юридического лица в пределах его места нахождения, фамилии, имени, отчества (последнее - при наличии), адреса места жительства, ОГРНИП, ИНН индивидуального предпринимателя)
@@ -2882,8 +2929,8 @@ export default function App() {
                             <textarea 
                               rows={1}
                               className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none" 
-                              value={actDetails.repSubcontractor}
-                              onChange={(e) => setActDetails({...actDetails, repSubcontractor: e.target.value})}
+                              value={actDetails.stroiteli3}
+                              onChange={(e) => setActDetails({...actDetails, stroiteli3: e.target.value})}
                             />
                             <div className="text-[6px] text-center italic leading-none">
                               (должность (при наличии), фамилия, инициалы, реквизиты распорядительного документа, подтверждающего полномочия,
@@ -2898,7 +2945,7 @@ export default function App() {
                         <div className="pt-4 font-bold">произвели осмотр работ, выполненных</div>
                         <div className="space-y-1">
                           <div className="border-b border-black min-h-[1.2em] px-2 bg-blue-50/30">
-                            {actDetails.contractor.split(',')[0]}
+                            {actDetails.stroiteli.split(',')[0]}
                           </div>
                           <div className="text-[6px] text-center italic leading-none">
                             (полное и (или) сокращенное наименование или фамилия, имя, отчество (последнее - при наличии) лица, выполнившего работы, подлежащие освидетельствованию)
@@ -2954,9 +3001,17 @@ export default function App() {
                             <textarea 
                               rows={1}
                               className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none" 
-                              value={actDetails.docs}
-                              onChange={(e) => setActDetails({...actDetails, docs: e.target.value})}
+                              value={actDetails.shema}
+                              onChange={(e) => setActDetails({...actDetails, shema: e.target.value})}
                             />
+                            <div className="font-bold mt-2">Результаты испытаний:</div>
+                            <textarea
+                              rows={1}
+                              className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none"
+                              value={actDetails.ispitaniya}
+                              onChange={(e) => setActDetails({...actDetails, ispitaniya: e.target.value})}
+                            />
+
                             <div className="text-[6px] text-center italic leading-none">
                               (исполнительные схемы и чертежи, результаты экспертиз, обследований, лабораторных
                             </div>
@@ -3045,11 +3100,11 @@ export default function App() {
                         {/* Bottom Signatures - All 5 from template */}
                         <div className="pt-8 space-y-6">
                           {[
-                            { label: "Представитель застройщика, технического заказчика...", name: actDetails.repDeveloper.split(',')[1]?.trim() || "Иванов И.И." },
-                            { label: "Представитель лица, осуществляющего строительство...", name: actDetails.repContractor.split(',')[1]?.trim() || "Петров П.П." },
-                            { label: "Представитель лица, осуществляющего строительство, по вопросам СК...", name: actDetails.repContractorSk.split(',')[1]?.trim() || "Сидоров С.С." },
-                            { label: "Представитель лица, осуществляющего подготовку проектной документации...", name: actDetails.repDesigner.split(',')[1]?.trim() || "Кузнецов А.С." },
-                            { label: "Представитель лица, выполнившего работы, подлежащие освидетельствованию...", name: actDetails.repSubcontractor.split(',')[1]?.trim() || "Васильев И.Н." }
+                            { label: "Представитель застройщика, технического заказчика...", name: actDetails.zakazchik1.split(',')[1]?.trim() || "Иванов И.И." },
+                            { label: "Представитель лица, осуществляющего строительство...", name: actDetails.stroiteli11.split(',')[1]?.trim() || "Петров П.П." },
+                            { label: "Представитель лица, осуществляющего строительство, по вопросам СК...", name: actDetails.stroiteli12.split(',')[1]?.trim() || "Сидоров С.С." },
+                            { label: "Представитель лица, осуществляющего подготовку проектной документации...", name: actDetails.projectirovshik1.split(',')[1]?.trim() || "Кузнецов А.С." },
+                            { label: "Представитель лица, выполнившего работы, подлежащие освидетельствованию...", name: actDetails.stroiteli3.split(',')[1]?.trim() || "Васильев И.Н." }
                           ].map((sig, i) => (
                             <div key={i} className="space-y-1">
                               <div className="font-bold leading-tight">{sig.label}</div>
