@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import bcrypt from 'bcryptjs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -79,7 +80,7 @@ async function startServer() {
     }
 
     const newUser = {
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       email,
       password: bcrypt.hashSync(password, 10),
       name
@@ -122,7 +123,7 @@ async function startServer() {
   app.post('/api/projects', authenticateToken, (req: any, res) => {
     const project = {
       ...req.body,
-      id: Math.random().toString(36).substr(2, 9),
+      id: crypto.randomUUID(),
       userId: req.user.id,
       createdAt: new Date().toISOString().split('T')[0],
       acts: []
