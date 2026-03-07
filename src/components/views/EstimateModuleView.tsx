@@ -28,6 +28,47 @@ export const EstimateModuleView: React.FC<EstimateModuleViewProps> = ({
   onBack,
   initialStep = 'upload'
 }) => {
+
+  const handleDownloadDocx = async () => {
+    const docxUtils = await import('../../utils/docxUtils').catch(() => import('../../utils/docxUtils'));
+
+    // Derived values
+    const zakazchik2 = actDetails.zakazchik1.split(',')[1]?.trim() || actDetails.zakazchik1;
+    const stroiteli21 = actDetails.stroiteli11.split(',')[1]?.trim() || actDetails.stroiteli11;
+    const stroiteli22 = actDetails.stroiteli12.split(',')[1]?.trim() || actDetails.stroiteli12;
+    const projectirovshik2 = actDetails.projectirovshik1.split(',')[1]?.trim() || actDetails.projectirovshik1;
+    const stroiteli32 = actDetails.stroiteli3.split(',')[1]?.trim() || actDetails.stroiteli3;
+
+    const data = {
+      ...actDetails,
+      D1: actDetails.startDate,
+      M1: actDetails.startMonth,
+      Y1: actDetails.startYear,
+      D2: actDetails.endDate,
+      M2: actDetails.endMonth,
+      Y2: actDetails.endYear,
+      D: actDetails.date,
+      M: actDetails.month,
+      Y: actDetails.year,
+      N: actDetails.copies,
+      DOP: actDetails.apps,
+      rabota: actDetails.workName || actDetails.project,
+      project: actDetails.projectDoc,
+      material: actDetails.materials,
+      SNIP: actDetails.standards,
+      Next: actDetails.nextWorks,
+      '№': `${actDetails.numberPrefix}${currentActIndex !== undefined ? currentActIndex + 1 : 1}`,
+
+      zakazchik2,
+      stroiteli21,
+      stroiteli22,
+      projectirovshik2,
+      stroiteli32,
+    };
+
+    docxUtils.generateDocx('/aosr_template.docx', data, `АОСР_${data['№'].replace(/\//g, '_')}.docx`);
+  };
+
   const [estimateStep, setEstimateStep] = useState<'upload' | 'selection' | 'mapping' | 'preview'>(initialStep);
   const [selectedRows, setSelectedRows] = useState<number[]>([]);
   const [useColumns, setUseColumns] = useState({ name: true, unit: true, amount: true });
@@ -524,11 +565,7 @@ export const EstimateModuleView: React.FC<EstimateModuleViewProps> = ({
               <div className="space-y-1">
                 <div className="flex items-baseline gap-2">
                   <span className="whitespace-nowrap">Объект капитального строительства</span>
-                  <input
-                    className="flex-1 border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50"
-                    value={actDetails.object}
-                    onChange={(e) => setActDetails({...actDetails, object: e.target.value})}
-                  />
+                  <textarea rows={2} className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none leading-tight" value={actDetails.object} onChange={(e) => setActDetails({...actDetails, object: e.target.value})} />
                 </div>
               </div>
 
@@ -537,15 +574,12 @@ export const EstimateModuleView: React.FC<EstimateModuleViewProps> = ({
                 <div className="font-bold leading-tight">
                   Застройщик, технический заказчик
                 </div>
-                <textarea
-                  rows={2}
-                  className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none"
-                  value={actDetails.developer}
-                  onChange={(e) => setActDetails({...actDetails, developer: e.target.value})}
+                <textarea rows={3} className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none" value={actDetails.zakazchik}
+                  onChange={(e) => setActDetails({...actDetails, zakazchik: e.target.value})}
                 />
                 <input
                   className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50"
-                  value={actDetails.developerSro}
+                  value={actDetails.zakazchikSro}
                   onChange={(e) => setActDetails({...actDetails, developerSro: e.target.value})}
                 />
               </div>
@@ -558,12 +592,12 @@ export const EstimateModuleView: React.FC<EstimateModuleViewProps> = ({
                 <textarea
                   rows={1}
                   className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50 resize-none"
-                  value={actDetails.contractor}
-                  onChange={(e) => setActDetails({...actDetails, contractor: e.target.value})}
+                  value={actDetails.stroiteli}
+                  onChange={(e) => setActDetails({...actDetails, stroiteli: e.target.value})}
                 />
                 <input
                   className="w-full border-b border-black px-2 bg-blue-50/30 outline-none focus:bg-yellow-50"
-                  value={actDetails.contractorSro}
+                  value={actDetails.stroiteliSro}
                   onChange={(e) => setActDetails({...actDetails, contractorSro: e.target.value})}
                 />
               </div>
@@ -658,8 +692,8 @@ export const EstimateModuleView: React.FC<EstimateModuleViewProps> = ({
               {/* Bottom Signatures */}
               <div className="pt-8 space-y-6">
                 {[
-                  { label: "Представитель застройщика...", name: actDetails.repDeveloper.split(',')[1]?.trim() || "Иванов И.И." },
-                  { label: "Представитель подрядчика...", name: actDetails.repContractor.split(',')[1]?.trim() || "Петров П.П." },
+                  { label: "Представитель застройщика...", name: actDetails.zakazchik1.split(',')[1]?.trim() || "Иванов И.И." },
+                  { label: "Представитель подрядчика...", name: actDetails.stroiteli11.split(',')[1]?.trim() || "Петров П.П." },
                 ].map((sig, i) => (
                   <div key={i} className="space-y-1">
                     <div className="font-bold leading-tight">{sig.label}</div>
