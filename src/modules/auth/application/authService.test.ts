@@ -109,4 +109,80 @@ test('AuthService', async (t) => {
       assert.strictEqual(authService.getCurrentUser(), null);
     });
   });
+
+  await t.test('login', async (st) => {
+    st.afterEach(() => {
+      // Restore global fetch after each test
+      global.fetch = originalFetch;
+    });
+
+    await st.test('should successfully log in a user and update currentUser', async () => {
+      const mockUser = {
+        id: '2',
+        name: 'Login User',
+        email: 'login@example.com',
+        role: 'manager' as const,
+      };
+
+      global.fetch = async (input, init) => {
+        assert.strictEqual(input, '/api/auth/login');
+        assert.strictEqual(init?.method, 'POST');
+        assert.deepStrictEqual(init?.headers, { 'Content-Type': 'application/json' });
+        assert.strictEqual(init?.body, JSON.stringify({
+          email: 'login@example.com',
+          password: 'securepassword123'
+        }));
+
+        return {
+          ok: true,
+          json: async () => mockUser,
+        } as Response;
+      };
+
+      const user = await authService.login('login@example.com', 'securepassword123');
+
+      assert.deepStrictEqual(user, mockUser);
+      assert.deepStrictEqual(authService.getCurrentUser(), mockUser);
+      assert.strictEqual(authService.isAuthenticated(), true);
+    });
+
+    await st.test('should throw a "Login failed" error if response is not ok', async () => {
+      global.fetch = async () => {
+        return {
+          ok: false,
+        } as Response;
+      };
+
+      await assert.rejects(
+        async () => {
+          await authService.login('wrong@example.com', 'badpass');
+        },
+        (err: Error) => {
+          assert.strictEqual(err.message, 'Login failed');
+          return true;
+        }
+      );
+
+      assert.strictEqual(authService.getCurrentUser(), null);
+      assert.strictEqual(authService.isAuthenticated(), false);
+    });
+
+    await st.test('should propagate network errors from fetch during login', async () => {
+      global.fetch = async () => {
+        throw new Error('Network timeout during login');
+      };
+
+      await assert.rejects(
+        async () => {
+          await authService.login('test@example.com', 'password123');
+        },
+        (err: Error) => {
+          assert.strictEqual(err.message, 'Network timeout during login');
+          return true;
+        }
+      );
+
+      assert.strictEqual(authService.getCurrentUser(), null);
+    });
+  });
 });
