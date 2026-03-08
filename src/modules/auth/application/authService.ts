@@ -21,8 +21,15 @@ export class AuthService {
     });
     
     if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Registration failed');
+      let errorMessage = 'Registration failed';
+      try {
+        const error = await response.json();
+        errorMessage = error.error || errorMessage;
+      } catch (e) {
+        // Fallback if response is not valid JSON
+        errorMessage = `Server error: ${response.status} ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
     }
     
     const user = await response.json();
@@ -37,7 +44,17 @@ export class AuthService {
       body: JSON.stringify({ email, password })
     });
     
-    if (!response.ok) throw new Error('Login failed');
+    if (!response.ok) {
+      let errorMessage = 'Login failed';
+      try {
+        const error = await response.json();
+        errorMessage = error.error || errorMessage;
+      } catch (e) {
+        // Fallback if response is not valid JSON
+        errorMessage = `Server error: ${response.status} ${response.statusText}`;
+      }
+      throw new Error(errorMessage);
+    }
     
     const user = await response.json();
     this.currentUser = user;
