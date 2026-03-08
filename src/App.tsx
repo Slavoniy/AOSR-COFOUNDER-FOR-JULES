@@ -500,9 +500,10 @@ export default function App() {
       setSubView('roadmap');
       setEstimateStep('upload');
       setCurrentActIndex(0);
-    } else if (selectedVector === 6 || selectedVector === 7) {
-      setView('mvp');
-      setSubView('future-plan');
+    } else if (selectedVector === 6) {
+      setView('migration');
+    } else if (selectedVector === 7) {
+      setView('stack');
     } else if (selectedVector === 4) {
       setView('analysis');
     } else if (selectedVector === 1) {
@@ -1279,9 +1280,9 @@ export default function App() {
               ></textarea>
             </div>
           </motion.div>
-        ) : view === 'migration' ? (
+        ) : view === 'migration' || view === 'stack' ? (
           <motion.div 
-            key="migration"
+            key={view === 'migration' ? 'migration' : 'stack'}
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
@@ -1294,273 +1295,6 @@ export default function App() {
               <ArrowLeft className="w-4 h-4" />
               Назад к выбору вектора
             </button>
-
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold text-slate-900">Миграция на собственные сервера и РФ-стек</h2>
-              <p className="text-slate-600">Стратегия обеспечения технологического суверенитета и соответствия требованиям ФЗ-152.</p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Step 1: Infrastructure */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                <div className="p-3 bg-blue-50 rounded-2xl text-blue-600 w-fit">
-                  <Layers className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-lg text-slate-900">1. Инфраструктура</h3>
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-2 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    Контейнеризация через Docker & K8s
-                  </li>
-                  <li className="flex items-start gap-2 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    База данных PostgreSQL (Managed в РФ)
-                  </li>
-                  <li className="flex items-start gap-2 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    S3-совместимое хранилище для сканов
-                  </li>
-                </ul>
-              </div>
-
-              {/* Step 2: Yandex AI Integration */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                <div className="p-3 bg-indigo-50 rounded-2xl text-indigo-600 w-fit">
-                  <Zap className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-lg text-slate-900">2. Yandex Cloud AI</h3>
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-2 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    YandexGPT для анализа смет и приказов
-                  </li>
-                  <li className="flex items-start gap-2 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    Yandex Vision OCR для распознавания документов
-                  </li>
-                  <li className="flex items-start gap-2 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    Локальный инстанс в дата-центрах РФ
-                  </li>
-                </ul>
-              </div>
-
-              {/* Step 3: Security & Compliance */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                <div className="p-3 bg-rose-50 rounded-2xl text-rose-600 w-fit">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-lg text-slate-900">3. Безопасность</h3>
-                <ul className="space-y-3">
-                  <li className="flex items-start gap-2 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    Соответствие ФЗ-152 (Персональные данные)
-                  </li>
-                  <li className="flex items-start gap-2 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    Интеграция с ЭЦП через КриптоПро
-                  </li>
-                  <li className="flex items-start gap-2 text-sm text-slate-600">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                    On-premise версия для госкорпораций
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="bg-slate-900 p-8 rounded-3xl text-white space-y-6">
-              <div className="flex items-center gap-3">
-                <Settings className="w-6 h-6 text-indigo-400" />
-                <h3 className="text-xl font-bold">Технический план миграции</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center font-bold">1</div>
-                    <div className="font-bold">Backend Refactoring</div>
-                  </div>
-                  <p className="text-sm text-slate-400 ml-12">Замена Google GenAI SDK на API Yandex Cloud (YandexGPT v3). Настройка проксирования запросов.</p>
-                  
-                  <div className="flex items-center gap-4">
-                    <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center font-bold">2</div>
-                    <div className="font-bold">Data Sovereignty</div>
-                  </div>
-                  <p className="text-sm text-slate-400 ml-12">Миграция всех хранилищ данных на территорию РФ. Настройка шифрования по ГОСТ.</p>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center font-bold">3</div>
-                    <div className="font-bold">CI/CD Pipeline</div>
-                  </div>
-                  <p className="text-sm text-slate-400 ml-12">Настройка автоматического деплоя в Yandex Cloud или на собственные сервера через GitLab Runner.</p>
-                  
-                  <div className="flex items-center gap-4">
-                    <div className="w-8 h-8 rounded-full bg-indigo-500 flex items-center justify-center font-bold">4</div>
-                    <div className="font-bold">Legal Compliance</div>
-                  </div>
-                  <p className="text-sm text-slate-400 ml-12">Прохождение аттестации по требованиям безопасности информации ФСТЭК (при необходимости).</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-indigo-50 border border-indigo-200 p-6 rounded-2xl space-y-4">
-              <div className="flex items-center gap-2 text-indigo-700 font-bold">
-                <Zap className="w-5 h-5" />
-                <span>Мнение Кофаундера</span>
-              </div>
-              <p className="text-sm text-indigo-600 leading-relaxed">
-                Переход на **Yandex AI** и локальные сервера — это не просто техническая задача, а **стратегическое преимущество** для продаж в госсектор и крупным застройщикам. В РФ сейчас огромный спрос на импортозамещение в PropTech. Использование YandexGPT позволит нам работать с закрытыми контурами данных, что критично для безопасности объектов.
-              </p>
-            </div>
-          </motion.div>
-        ) : view === 'stack' ? (
-          <motion.div 
-            key="stack"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="max-w-5xl w-full space-y-8 mt-8"
-          >
-            <button 
-              onClick={() => setView('home')}
-              className="flex items-center gap-2 text-slate-500 hover:text-slate-900 transition-colors mb-4"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Назад к выбору вектора
-            </button>
-
-            <div className="space-y-2">
-              <h2 className="text-3xl font-bold text-slate-900">Технологический стек StroyDoc AI</h2>
-              <p className="text-slate-600">Современная архитектура, обеспечивающая скорость, масштабируемость и надежность.</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Frontend */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                <div className="p-3 bg-blue-50 rounded-2xl text-blue-600 w-fit">
-                  <Layers className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-lg text-slate-900">Frontend</h3>
-                <ul className="space-y-3">
-                  <li className="flex items-center gap-2 text-sm text-slate-600">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    React 18+ (Functional Components)
-                  </li>
-                  <li className="flex items-center gap-2 text-sm text-slate-600">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    TypeScript (Строгая типизация)
-                  </li>
-                  <li className="flex items-center gap-2 text-sm text-slate-600">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    Tailwind CSS (Utility-first styling)
-                  </li>
-                  <li className="flex items-center gap-2 text-sm text-slate-600">
-                    <div className="w-2 h-2 rounded-full bg-blue-500" />
-                    Framer Motion (Анимации)
-                  </li>
-                </ul>
-              </div>
-
-              {/* AI & Logic */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                <div className="p-3 bg-violet-50 rounded-2xl text-violet-600 w-fit">
-                  <Zap className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-lg text-slate-900">AI & Обработка</h3>
-                <ul className="space-y-3">
-                  <li className="flex items-center gap-2 text-sm text-slate-600">
-                    <div className="w-2 h-2 rounded-full bg-violet-500" />
-                    Google Gemini API (LLM & Vision)
-                  </li>
-                  <li className="flex items-center gap-2 text-sm text-slate-600">
-                    <div className="w-2 h-2 rounded-full bg-violet-500" />
-                    XLSX / SheetJS (Парсинг смет)
-                  </li>
-                  <li className="flex items-center gap-2 text-sm text-slate-600">
-                    <div className="w-2 h-2 rounded-full bg-violet-500" />
-                    Custom AI Prompts (Промпт-инжиниринг)
-                  </li>
-                </ul>
-              </div>
-
-              {/* Infrastructure */}
-              <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600 w-fit">
-                  <ShieldCheck className="w-6 h-6" />
-                </div>
-                <h3 className="font-bold text-lg text-slate-900">Инфраструктура</h3>
-                <ul className="space-y-3">
-                  <li className="flex items-center gap-2 text-sm text-slate-600">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                    Vite (Сборка проекта)
-                  </li>
-                  <li className="flex items-center gap-2 text-sm text-slate-600">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                    Docker (Контейнеризация)
-                  </li>
-                  <li className="flex items-center gap-2 text-sm text-slate-600">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                    CI/CD (Автоматический деплой)
-                  </li>
-                </ul>
-              </div>
-            </div>
-
-            <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-sm">
-              <h3 className="text-xl font-bold text-slate-900 mb-6">Почему мы выбрали этот стек?</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-blue-50 rounded-lg text-blue-600">
-                      <Zap className="w-5 h-5" />
-                    </div>
-                    <h4 className="font-bold">Скорость разработки</h4>
-                  </div>
-                  <p className="text-sm text-slate-500 leading-relaxed">
-                    React и Tailwind позволяют нам мгновенно внедрять новые функции и менять UI под запросы пользователей. TypeScript минимизирует ошибки на этапе написания кода.
-                  </p>
-                </div>
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-emerald-50 rounded-lg text-emerald-600">
-                      <ShieldCheck className="w-5 h-5" />
-                    </div>
-                    <h4 className="font-bold">Готовность к AI</h4>
-                  </div>
-                  <p className="text-sm text-slate-500 leading-relaxed">
-                    Архитектура изначально спроектирована под работу с LLM. Мы легко можем переключаться между Gemini, YandexGPT или локальными моделями без переписывания всего приложения.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 p-6 rounded-2xl border border-slate-200">
-              <div className="flex items-center gap-2 text-slate-700 font-bold mb-2">
-                <Info className="w-5 h-5" />
-                <span>Техническая справка</span>
-              </div>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Приложение является Single Page Application (SPA). Весь тяжелый анализ документов происходит на стороне AI-моделей, что позволяет интерфейсу оставаться быстрым даже на слабых устройствах прорабов на стройплощадке.
-              </p>
-            </div>
-          </motion.div>
-        ) : (
-          <motion.div 
-            key="mvp"
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.95 }}
-            className="max-w-4xl w-full space-y-8 mt-8"
-          >
-
-            <MVPView
-              onBack={() => setView('home')}
-              subView={subView}
-              setSubView={setSubView}
-              setView={setView}
-              setProfileTab={setProfileTab}
-            />
-            ) : subView === 'future-plan' ? (
               <div className="space-y-12 pb-20">
                 <div className="space-y-4">
                   <div className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-full text-sm font-bold">
@@ -1943,6 +1677,23 @@ export default function App() {
                   </div>
                 </div>
               </div>
+          </motion.div>
+        ) : (
+          <motion.div
+            key="mvp"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            className="max-w-4xl w-full space-y-8 mt-8"
+          >
+
+            <MVPView
+              onBack={() => setView('home')}
+              subView={subView}
+              setSubView={setSubView}
+              setView={setView}
+              setProfileTab={setProfileTab}
+            />
             ) : subView === 'certificates' ? (
               <div className="space-y-8">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
