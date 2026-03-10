@@ -72,7 +72,7 @@ async function startServer() {
   app.use(cookieParser());
 
   // Health Check
-  app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
+  app.get('/api/health', (req, res) => res.json({ status: 'ok', version: '1.0.1_forced_sync' }));
 
   // Auth Middleware
   const authenticateToken = (req: any, res: any, next: any) => {
