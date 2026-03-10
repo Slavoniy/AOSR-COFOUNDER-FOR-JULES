@@ -27,6 +27,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-
 import { DashboardLayout } from './components/layout/DashboardLayout';
 import { DashboardHomeView } from './components/views/Dashboard/DashboardHomeView';
 import { ObjectsView } from './components/views/Dashboard/ObjectsView';
+import { ObjectDetailView } from './components/views/Dashboard/ObjectDetailView';
 import { RegistryView } from './components/views/Dashboard/RegistryView';
 import { DictionariesView } from './components/views/Dashboard/DictionariesView';
 import { SettingsView } from './components/views/Dashboard/SettingsView';
@@ -546,6 +547,7 @@ export default function App() {
             <Route path="/dashboard" element={<DashboardLayout user={user} onLogout={handleLogout} />}>
               <Route index element={<DashboardHomeView />} />
               <Route path="objects" element={<ObjectsView user={user} />} />
+              <Route path="objects/:id" element={<ObjectDetailView user={user} />} />
               <Route path="registry" element={<RegistryView user={user} />} />
               <Route path="dictionaries" element={<DictionariesView user={user} />} />
               <Route path="settings" element={<SettingsView user={user} />} />
