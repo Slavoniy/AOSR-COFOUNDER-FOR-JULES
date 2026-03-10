@@ -207,9 +207,14 @@ async function startServer() {
       }
 
       const { EstimateParser } = await import('./src/modules/documents/infrastructure/estimateParser.js');
+      const { aiService } = await import('./src/modules/ai-engine/infrastructure/aiService.js');
 
       const parsedData = EstimateParser.parseExcelBuffer(req.file.buffer);
-      res.json({ data: parsedData });
+
+      // Use AI to extract the structured works and materials
+      const aiResult = await aiService.parseEstimateData(parsedData);
+
+      res.json({ data: aiResult });
     } catch (err) {
       console.error('Estimate parse error:', err);
       res.status(500).json({ error: 'Failed to parse estimate file' });
