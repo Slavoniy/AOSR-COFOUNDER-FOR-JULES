@@ -8,6 +8,7 @@ import { fileURLToPath } from 'url';
 import crypto from 'crypto';
 import pg from 'pg';
 import dotenv from 'dotenv';
+import multer from 'multer';
 
 dotenv.config();
 
@@ -30,6 +31,12 @@ if (DATABASE_URL) {
 // In-memory fallback if no DB connection
 const memoryUsers: any[] = [];
 const memoryProjects: any[] = [];
+
+// Multer setup for processing file uploads in memory
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
 
 async function initializeDatabase() {
   if (!pool) return;
@@ -190,6 +197,22 @@ async function startServer() {
     } catch (err) {
       console.error('Create project error:', err);
       res.status(500).json({ error: 'Internal server error' });
+    }
+  });
+
+  app.post('/api/estimates/parse', authenticateToken, upload.single('file'), async (req: any, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No file uploaded' });
+      }
+
+      const { EstimateParser } = await import('./src/modules/documents/infrastructure/estimateParser.js');
+
+      const parsedData = EstimateParser.parseExcelBuffer(req.file.buffer);
+      res.json({ data: parsedData });
+    } catch (err) {
+      console.error('Estimate parse error:', err);
+      res.status(500).json({ error: 'Failed to parse estimate file' });
     }
   });
 
