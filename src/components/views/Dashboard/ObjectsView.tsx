@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useProjects } from '../../../hooks/useProjects';
+import { useNavigate } from 'react-router-dom';
 import { Building2, Plus, FolderOpen, Search } from 'lucide-react';
 
 interface ObjectsViewProps {
@@ -7,6 +8,7 @@ interface ObjectsViewProps {
 }
 
 export const ObjectsView: React.FC<ObjectsViewProps> = ({ user }) => {
+  const navigate = useNavigate();
   const { projects, handleCreateProject } = useProjects(!!user);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -74,7 +76,7 @@ export const ObjectsView: React.FC<ObjectsViewProps> = ({ user }) => {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                {filteredProjects.map(project => (
-                 <div key={project.id} className="border border-gray-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer bg-white group">
+                 <div key={project.id} onClick={() => navigate(`/dashboard/objects/${project.id}`)} className="border border-gray-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer bg-white group">
                    <div className="flex items-start justify-between mb-4">
                      <div className="bg-blue-50 p-3 rounded-lg group-hover:bg-blue-100 transition-colors">
                        <Building2 className="w-6 h-6 text-blue-600" />

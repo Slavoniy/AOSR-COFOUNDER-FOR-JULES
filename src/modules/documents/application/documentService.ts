@@ -3,14 +3,27 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { estimateParser, EstimateRow } from '../infrastructure/estimateParser';
 import { eventBus } from '../../shared/infrastructure/eventBus';
 
 export class DocumentService {
-  async parseEstimate(file: File): Promise<EstimateRow[]> {
+  async parseEstimate(file: File): Promise<any[]> {
     eventBus.emit('document:parsing:start', { fileName: file.name });
     try {
-      const data = await estimateParser.parse(file);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/estimates/parse', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server returned ${response.status}`);
+      }
+
+      const result = await response.json();
+      const data = result.data || [];
+
       eventBus.emit('document:parsing:success', { count: data.length });
       return data;
     } catch (error) {
