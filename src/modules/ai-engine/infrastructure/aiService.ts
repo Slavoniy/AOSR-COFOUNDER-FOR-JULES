@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GoogleGenAI, ThinkingLevel, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel, GenerateContentResponse, Type, Schema } from "@google/genai";
 
 export class AIService {
   private ai: GoogleGenAI | null = null;
@@ -45,6 +45,63 @@ export class AIService {
     const jsonMatch = text.match(/\{.*\}/s);
     if (!jsonMatch) throw new Error("No JSON found in AI response");
     return JSON.parse(jsonMatch[0]);
+  }
+
+  async parseEstimateData(excelData: any[][]): Promise<{ workName: string, materials: string, quantity: number, unit: string }[]> {
+    if (!this.ai) {
+      console.warn("Mock AI parse response returned");
+      return [];
+    }
+
+    const schema: Schema = {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          workName: {
+            type: Type.STRING,
+            description: "The name of the construction work."
+          },
+          materials: {
+            type: Type.STRING,
+            description: "The materials used for this specific work, combined into a single string. If none, extract from work name."
+          },
+          quantity: {
+            type: Type.NUMBER,
+            description: "The numerical quantity of the work. Ignore if 0 or empty."
+          },
+          unit: {
+            type: Type.STRING,
+            description: "The unit of measurement for the work."
+          }
+        },
+        required: ["workName", "materials", "quantity", "unit"]
+      }
+    };
+
+    const promptText = `You are an expert construction estimator. Analyze the provided 2D array of construction estimate data. Extract a list of construction works based on these strict rules: 1) Identify works (usually actions like Installation, Laying, Painting). 2) Identify materials used for each work. If materials are listed in the rows immediately below the work, combine them into a single string. If no material rows follow, extract the implied material directly from the work's name. 3) Extract the numerical Quantity and the Unit of measurement. 4) CRITICAL: Skip and completely ignore any work where the Quantity is 0 or empty. 5) CRITICAL CONTEXT FOR MAPPING: The extracted JSON will be used to automatically fill out an AOSR (Certificate of Concealed Works) template. Therefore, you must extract the data point-by-point. For every single construction work you identify, you must find and strictly associate ONLY the specific materials that belong to that exact work. Do not create a global list of materials. The output must perfectly link [Specific Work] -> [Materials used to execute this specific work] so it can be mapped to the document correctly.
+6) Return the data strictly according to the provided schema.
+
+Estimate Data:
+${JSON.stringify(excelData)}
+`;
+
+    const response = await this.callAiWithRetry(() => this.ai!.models.generateContent({
+      model: "gemini-2.5-flash", // Use a model that supports structured output well
+      contents: promptText,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: schema,
+      }
+    }));
+
+    const text = response.text || "[]";
+    try {
+      return JSON.parse(text);
+    } catch (e) {
+      console.error("Failed to parse JSON from AI response:", text);
+      return [];
+    }
   }
 
   private async callAiWithRetry(fn: () => Promise<any>, retries = 3): Promise<GenerateContentResponse> {
