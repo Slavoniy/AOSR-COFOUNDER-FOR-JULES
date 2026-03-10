@@ -8,7 +8,12 @@ export const useProjects = (isAuthenticated: boolean) => {
 
   useEffect(() => {
     if (isAuthenticated) {
-      projectService.fetchMyProjects().then(setProjects);
+      projectService.fetchMyProjects()
+        .then(setProjects)
+        .catch(err => {
+          console.error("Failed to fetch projects:", err);
+          setProjects([]); // Fallback
+        });
     }
   }, [isAuthenticated]);
 

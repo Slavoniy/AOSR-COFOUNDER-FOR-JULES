@@ -68,3 +68,28 @@ export type Certificate = {
   date: string;
   file: string;
 };
+
+export type UserRole = 'ADMIN' | 'ENGINEER';
+
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  role?: UserRole;
+};
+
+export type Company = {
+  id: string;
+  name: string;        // Полное наименование
+  inn: string;         // ИНН
+  ogrn: string;        // ОГРН
+  sroDetails: string;  // Данные СРО
+  address: string;     // Юридический адрес
+};
+
+export type Signatory = {
+  id: string;
+  fio: string;           // ФИО
+  position: string;      // Должность
+  documentBasis: string; // Основание полномочий (Приказ №1, Доверенность...)
+};

@@ -13,7 +13,12 @@ export class ProjectService {
   async fetchMyProjects(): Promise<Project[]> {
     const response = await fetch('/api/my-projects');
     if (!response.ok) throw new Error('Failed to fetch projects');
-    this.projects = await response.json();
+    try {
+      this.projects = await response.json();
+    } catch (err) {
+      console.error('JSON parse error in fetchMyProjects:', err);
+      this.projects = [];
+    }
     return this.projects;
   }
 
