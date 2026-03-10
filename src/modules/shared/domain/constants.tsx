@@ -11,53 +11,11 @@ import { Vector } from './types';
 
 export const VECTORS: Vector[] = [
   {
-    id: 1,
-    title: "Проработка бизнес-модели",
-    description: "Работа с Business Model Canvas: ценностное предложение, потоки доходов и структура издержек.",
-    icon: <Briefcase className="w-6 h-6" />,
-    color: "bg-blue-500"
-  },
-  {
-    id: 2,
-    title: "Портрет ЦА и боли",
-    description: "Анализ инженеров ПТО, застройщиков и генподрядчиков. Выявление критических проблем.",
-    icon: <Users className="w-6 h-6" />,
-    color: "bg-emerald-500"
-  },
-  {
     id: 3,
     title: "Функционал MVP",
     description: "Определение приоритетных функций для первой версии: ОЖР, АОСР, автоматизация ИД.",
     icon: <Layers className="w-6 h-6" />,
     color: "bg-violet-500"
-  },
-  {
-    id: 4,
-    title: "Анализ конкурентов и УЦП",
-    description: "Сравнение с Signal, Exon, IYNO. Формирование уникального ценностного предложения.",
-    icon: <BarChart3 className="w-6 h-6" />,
-    color: "bg-orange-500"
-  },
-  {
-    id: 5,
-    title: "Анализ объема рынка (TAM/SAM/SOM)",
-    description: "Оценка потенциала рынка PropTech в РФ: от общего объема строительства до достижимого сегмента.",
-    icon: <BarChart3 className="w-6 h-6" />,
-    color: "bg-rose-500"
-  },
-  {
-    id: 6,
-    title: "Миграция и РФ-стек (Yandex AI)",
-    description: "Перенос на собственные сервера, интеграция YandexGPT и Yandex Vision для работы в РФ.",
-    icon: <ShieldCheck className="w-6 h-6" />,
-    color: "bg-indigo-600"
-  },
-  {
-    id: 7,
-    title: "Технологический стек",
-    description: "Описание архитектуры, языков программирования и библиотек, на которых построен StройDoc AI.",
-    icon: <Settings className="w-6 h-6" />,
-    color: "bg-slate-700"
   }
 ];
 

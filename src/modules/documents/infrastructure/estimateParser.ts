@@ -16,6 +16,63 @@ export interface EstimateRow {
 }
 
 export class EstimateParser {
+  /**
+   * Parses an Excel file buffer and returns a lightweight 2D array of its contents.
+   * Completely empty rows and columns are filtered out.
+   */
+  static parseExcelBuffer(buffer: Buffer): any[][] {
+    // Read the workbook from the buffer
+    const wb = XLSX.read(buffer, { type: 'buffer' });
+
+    // Use the first sheet
+    const sheetName = wb.SheetNames[0];
+    const sheet = wb.Sheets[sheetName];
+
+    // Convert sheet to a 2D array (array of arrays)
+    const rawData = XLSX.utils.sheet_to_json<any[]>(sheet, { header: 1 });
+
+    if (!rawData || rawData.length === 0) {
+      return [];
+    }
+
+    // Step 1: Remove completely empty rows
+    const rowsWithData = rawData.filter((row: any[]) =>
+      row && row.some(cell => cell !== undefined && cell !== null && cell !== '')
+    );
+
+    if (rowsWithData.length === 0) {
+      return [];
+    }
+
+    // Determine the maximum number of columns across all rows
+    const maxCols = Math.max(...rowsWithData.map((row: any[]) => row.length));
+
+    // Step 2: Identify which columns are completely empty
+    const colHasData = new Array(maxCols).fill(false);
+
+    for (const row of rowsWithData) {
+      for (let colIndex = 0; colIndex < maxCols; colIndex++) {
+        const cell = row[colIndex];
+        if (cell !== undefined && cell !== null && cell !== '') {
+          colHasData[colIndex] = true;
+        }
+      }
+    }
+
+    // Step 3: Filter out the empty columns from each row
+    const cleanData = rowsWithData.map((row: any[]) => {
+      const cleanRow: any[] = [];
+      for (let colIndex = 0; colIndex < maxCols; colIndex++) {
+        if (colHasData[colIndex]) {
+          cleanRow.push(row[colIndex] ?? null); // Use null for empty cells in non-empty columns to preserve alignment
+        }
+      }
+      return cleanRow;
+    });
+
+    return cleanData;
+  }
+
   async parse(file: File): Promise<EstimateRow[]> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
