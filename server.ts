@@ -9,6 +9,8 @@ import crypto from 'crypto';
 import pg from 'pg';
 import dotenv from 'dotenv';
 import multer from 'multer';
+import { EstimateParser } from './src/modules/documents/infrastructure/estimateParser';
+import { aiService } from './src/modules/ai-engine/infrastructure/aiService';
 
 dotenv.config();
 
@@ -68,6 +70,9 @@ async function startServer() {
   const app = express();
   app.use(express.json());
   app.use(cookieParser());
+
+  // Health Check
+  app.get('/api/health', (req, res) => res.json({ status: 'ok' }));
 
   // Auth Middleware
   const authenticateToken = (req: any, res: any, next: any) => {
@@ -205,9 +210,6 @@ async function startServer() {
       if (!req.file) {
         return res.status(400).json({ error: 'No file uploaded' });
       }
-
-      const { EstimateParser } = await import('./src/modules/documents/infrastructure/estimateParser.js');
-      const { aiService } = await import('./src/modules/ai-engine/infrastructure/aiService.js');
 
       const parsedData = EstimateParser.parseExcelBuffer(req.file.buffer);
 
