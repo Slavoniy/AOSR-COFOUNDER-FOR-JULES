@@ -4,6 +4,7 @@ import { FileText, ShieldCheck, Zap, Loader2, Upload, ChevronRight, CheckCircle2
 import { Project, ActDetail } from '../../modules/shared/domain/types';
 import { aiService } from '../../modules/ai-engine/infrastructure/aiService';
 import { documentService } from '../../modules/documents/application/documentService';
+import { eventBus } from '../../modules/shared/infrastructure/eventBus';
 
 interface EstimateModuleViewProps {
   activeProject: Project | null;
@@ -81,9 +82,20 @@ export const EstimateModuleView: React.FC<EstimateModuleViewProps> = ({
     materialAnalysis?: number;
   }>({});
   const [currentActIndex, setCurrentActIndex] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState<{ processed: number, total: number } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const orderInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleProgress = (data: any) => {
+      setUploadProgress({ processed: data.chunkIndex, total: data.totalChunks });
+      setEstimateData(data.accumulatedData);
+      setEstimateStep('selection'); // show the table as soon as there's data
+    };
+    eventBus.on('document:parsing:progress', handleProgress);
+    return () => eventBus.off('document:parsing:progress', handleProgress);
+  }, []);
 
   useEffect(() => {
     if (estimateStep === 'preview' && selectedRows.length > 0) {
@@ -102,19 +114,24 @@ export const EstimateModuleView: React.FC<EstimateModuleViewProps> = ({
     if (!file) return;
 
     setIsAnalyzing(true);
+    setUploadProgress(null);
     const startTime = Date.now();
     try {
       setActDetails((prev: any) => ({ ...prev, workName: '' }));
-      const parsed = await documentService.parseEstimate(file);
+      const response = await documentService.parseEstimate(file);
+
+      const respData = response as any;
+      const dataArray = Array.isArray(respData) ? respData : respData.data;
 
       setPerformanceMetrics(prev => ({ ...prev, estimateParsing: Date.now() - startTime }));
-      setEstimateData(parsed);
+      setEstimateData(dataArray);
       setEstimateStep('selection');
     } catch (error) {
       console.error("Error parsing file:", error);
       alert("Ошибка при чтении файла.");
     } finally {
       setIsAnalyzing(false);
+      setUploadProgress(null);
     }
   };
 
@@ -440,6 +457,17 @@ export const EstimateModuleView: React.FC<EstimateModuleViewProps> = ({
               </div>
             </div>
 
+            {isAnalyzing && uploadProgress && (
+              <div className="mb-4">
+                <div className="flex justify-between text-sm text-slate-600 mb-1">
+                  <span>Обработка строк...</span>
+                  <span>{Math.round((uploadProgress.processed / uploadProgress.total) * 100)}% ({uploadProgress.processed} / {uploadProgress.total} частей)</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2">
+                  <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${(uploadProgress.processed / uploadProgress.total) * 100}%` }}></div>
+                </div>
+              </div>
+            )}
             <div className="pt-6 border-t border-slate-100 flex items-center justify-between">
               <div className="text-sm text-slate-500">
                 Выбрано строк: <span className="font-bold text-blue-600">{selectedRows.length}</span>

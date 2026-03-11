@@ -308,6 +308,17 @@ export default function App() {
     orderScanning?: number;
     materialAnalysis?: number;
   }>({});
+  const [uploadProgress, setUploadProgress] = useState<{ processed: number, total: number } | null>(null);
+
+  useEffect(() => {
+    const handleProgress = (data: any) => {
+      setUploadProgress({ processed: data.chunkIndex, total: data.totalChunks });
+      setEstimateData(data.accumulatedData);
+      setEstimateStep('selection');
+    };
+    eventBus.on('document:parsing:progress', handleProgress);
+    return () => eventBus.off('document:parsing:progress', handleProgress);
+  }, []);
 
   // Sync materials when switching acts in preview
   useEffect(() => {
@@ -329,19 +340,24 @@ export default function App() {
     if (!file) return;
 
     setIsAnalyzing(true);
+    setUploadProgress(null);
     const startTime = Date.now();
     try {
       setActDetails(prev => ({ ...prev, workName: '' }));
-      const parsed = await documentService.parseEstimate(file);
+      const response = await documentService.parseEstimate(file);
       
+      const respData = response as any;
+      const dataArray = Array.isArray(respData) ? respData : respData.data;
+
       setPerformanceMetrics(prev => ({ ...prev, estimateParsing: Date.now() - startTime }));
-      setEstimateData(parsed);
+      setEstimateData(dataArray);
       setEstimateStep('selection');
     } catch (error) {
       console.error("Error parsing file:", error);
       alert("Ошибка при чтении файла.");
     } finally {
       setIsAnalyzing(false);
+      setUploadProgress(null);
     }
   };
 

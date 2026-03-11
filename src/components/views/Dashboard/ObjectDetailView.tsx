@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useProjects } from '../../../hooks/useProjects';
 import { ArrowLeft, Upload, FileText, Loader2, CheckCircle2 } from 'lucide-react';
 import { EditableActTable, EstimateDataRow } from './EditableActTable';
+import { eventBus } from '../../../modules/shared/infrastructure/eventBus';
 import { documentService } from '../../../modules/documents/application/documentService';
 
 interface ObjectDetailViewProps {
@@ -17,6 +18,7 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
   const [project, setProject] = useState<any>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [parsedData, setParsedData] = useState<EstimateDataRow[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<{ processed: number, total: number } | null>(null);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'warning' | 'error' } | null>(null);
 
   // Dictionaries state
@@ -35,6 +37,21 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
       setProject(found || null);
     }
   }, [id, projects]);
+
+  useEffect(() => {
+    const handleProgress = (data: any) => {
+      setUploadProgress({ processed: data.chunkIndex, total: data.totalChunks });
+      setParsedData(data.accumulatedData.map((item: any, index: number) => ({
+        id: `row-${index}`,
+        workName: item.workName,
+        materials: item.materials || 'Материалы согласно проекту',
+        quantity: item.quantity,
+        unit: item.unit
+      })));
+    };
+    eventBus.on('document:parsing:progress', handleProgress);
+    return () => eventBus.off('document:parsing:progress', handleProgress);
+  }, []);
 
   if (!project && projects.length === 0) {
     return (
@@ -119,6 +136,7 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
                     const file = e.target.files?.[0];
                     if (!file) return;
                     setIsUploading(true);
+                    setUploadProgress(null);
                     try {
                       const response = await documentService.parseEstimate(file);
                       // Fallback support since documentService changed its return type
@@ -143,12 +161,24 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
                       setToastMessage({ text: `Ошибка парсинга сметы: ${err.message}`, type: 'error' });
                     } finally {
                       setIsUploading(false);
+                      setUploadProgress(null);
                       // Reset file input so same file can be selected again if needed
                       e.target.value = '';
                     }
                   }}
                 />
               </label>
+            )}
+            {isUploading && uploadProgress && (
+              <div className="mt-4 w-full max-w-sm mx-auto">
+                <div className="flex justify-between text-sm text-gray-600 mb-1">
+                  <span>Обработка строк...</span>
+                  <span>{Math.round((uploadProgress.processed / uploadProgress.total) * 100)}% ({uploadProgress.processed} / {uploadProgress.total} частей)</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${(uploadProgress.processed / uploadProgress.total) * 100}%` }}></div>
+                </div>
+              </div>
             )}
           </div>
         ) : (
