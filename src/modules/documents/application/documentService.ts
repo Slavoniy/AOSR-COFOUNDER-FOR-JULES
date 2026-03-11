@@ -34,7 +34,7 @@ export class DocumentService {
       }
 
       eventBus.emit('document:parsing:success', { count: data.length, warning: result.warning });
-      return { data, warning: result.warning };
+      return { data, warning: result.warning } as any;
     } catch (error) {
       eventBus.emit('document:parsing:error', { error });
       throw error;
