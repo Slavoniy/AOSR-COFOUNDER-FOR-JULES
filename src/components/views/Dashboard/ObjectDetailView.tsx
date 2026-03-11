@@ -122,7 +122,8 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
                     try {
                       const response = await documentService.parseEstimate(file);
                       // Fallback support since documentService changed its return type
-                      const dataArray = Array.isArray(response) ? response : response.data;
+                      const respData = response as any;
+                      const dataArray = Array.isArray(respData) ? respData : respData.data;
 
                       setParsedData(dataArray.map((item: any, index: number) => ({
                         id: `row-${index}`,
@@ -132,8 +133,8 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
                         unit: item.unit
                       })));
 
-                      if (!Array.isArray(response) && response.warning) {
-                        setToastMessage({ text: response.warning, type: 'warning' });
+                      if (!Array.isArray(respData) && respData.warning) {
+                        setToastMessage({ text: respData.warning, type: 'warning' });
                       } else {
                         setToastMessage({ text: 'Смета успешно обработана', type: 'success' });
                       }
