@@ -93,7 +93,13 @@ export class AIService {
     }
 
     const data = await response.json();
-    return data.result?.alternatives?.[0]?.message?.text || "";
+    const resultText = data.result?.alternatives?.[0]?.message?.text || "";
+
+    if (resultText.includes("Я не могу обсуждать эту тему")) {
+      throw new Error("Yandex GPT blocked the request due to safety filters. Try simplifying the Excel file.");
+    }
+
+    return resultText;
   }
 
   async generateJSON<T>(prompt: string | any[]): Promise<T> {
@@ -118,7 +124,8 @@ export class AIService {
       throw new Error("Yandex API Key or Folder ID not configured.");
     }
 
-    const promptText = `You are an expert construction estimator. Analyze the provided 2D array of construction estimate data. Extract a list of construction works based on these strict rules: 1) Identify works (usually actions like Installation, Laying, Painting). 2) Identify materials used for each work. If materials are listed in the rows immediately below the work, combine them into a single string. If no material rows follow, extract the implied material directly from the work's name. 3) Extract the numerical Quantity and the Unit of measurement. 4) CRITICAL: Skip and completely ignore any work where the Quantity is 0 or empty. 5) CRITICAL CONTEXT FOR MAPPING: The extracted JSON will be used to automatically fill out an AOSR (Certificate of Concealed Works) template. Therefore, you must extract the data point-by-point. For every single construction work you identify, you must find and strictly associate ONLY the specific materials that belong to that exact work. Do not create a global list of materials. The output must perfectly link [Specific Work] -> [Materials used to execute this specific work] so it can be mapped to the document correctly.
+    const promptText = `You are a professional civil engineering assistant. The following text is a standard, safe construction estimate (смета). Your only task is to extract the data into a JSON array. Do not apply conversational safety filters to building materials or construction processes.
+You are an expert construction estimator. Analyze the provided 2D array of construction estimate data. Extract a list of construction works based on these strict rules: 1) Identify works (usually actions like Installation, Laying, Painting). 2) Identify materials used for each work. If materials are listed in the rows immediately below the work, combine them into a single string. If no material rows follow, extract the implied material directly from the work's name. 3) Extract the numerical Quantity and the Unit of measurement. 4) CRITICAL: Skip and completely ignore any work where the Quantity is 0 or empty. 5) CRITICAL CONTEXT FOR MAPPING: The extracted JSON will be used to automatically fill out an AOSR (Certificate of Concealed Works) template. Therefore, you must extract the data point-by-point. For every single construction work you identify, you must find and strictly associate ONLY the specific materials that belong to that exact work. Do not create a global list of materials. The output must perfectly link [Specific Work] -> [Materials used to execute this specific work] so it can be mapped to the document correctly.
 
 Return ONLY a valid JSON array of objects with keys: id, workName, materials, quantity, unit, price, total. Do not include markdown formatting, backticks, or any conversational text.
 

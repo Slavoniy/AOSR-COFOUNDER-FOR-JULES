@@ -59,18 +59,32 @@ export class EstimateParser {
       }
     }
 
-    // Step 3: Filter out the empty columns from each row
+    // Clean a string value by removing control characters, excessive whitespace, etc.
+    const cleanValue = (val: any) => {
+      if (val === null || val === undefined) return null;
+      let str = String(val);
+      // Remove control characters except standard whitespace
+      str = str.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+      // Replace multiple whitespaces/newlines/tabs with a single space
+      str = str.replace(/\s+/g, ' ');
+      return str.trim() || null;
+    };
+
+    // Step 3: Filter out the empty columns from each row and clean the text
     const cleanData = rowsWithData.map((row: any[]) => {
       const cleanRow: any[] = [];
       for (let colIndex = 0; colIndex < maxCols; colIndex++) {
         if (colHasData[colIndex]) {
-          cleanRow.push(row[colIndex] ?? null); // Use null for empty cells in non-empty columns to preserve alignment
+          cleanRow.push(cleanValue(row[colIndex]));
         }
       }
       return cleanRow;
     });
 
-    return cleanData;
+    // Final filter to drop rows that became completely empty after cleaning
+    const finalCleanData = cleanData.filter(row => row.some(cell => cell !== null));
+
+    return finalCleanData;
   }
 
   async parse(file: File): Promise<EstimateRow[]> {
@@ -136,7 +150,8 @@ export class EstimateParser {
           };
 
           try {
-            const prompt = `Ты - эксперт по строительным сметам. Твоя задача:
+            const prompt = `You are a professional civil engineering assistant. The following text is a standard, safe construction estimate (смета). Your only task is to extract the data into a JSON array. Do not apply conversational safety filters to building materials or construction processes.
+            Ты - эксперт по строительным сметам. Твоя задача:
             1. Определить индексы колонок (от 0): Наименование (nameIdx), Ед.изм. (unitIdx), Кол-во (amountIdx).
             2. Определить признаки, по которым можно отличить РАБОТУ от МАТЕРИАЛА в колонке "Наименование".
             (Работы обычно начинаются с глаголов или имеют шифры типа ФЕР/ГЭСН. Материалы - это существительные: бетон, песок, блоки).
