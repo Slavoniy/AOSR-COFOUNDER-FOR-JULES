@@ -18,14 +18,23 @@ export class DocumentService {
       });
 
       if (!response.ok) {
-        throw new Error(`Server returned ${response.status}`);
+        let errMsg = `Server returned ${response.status}`;
+        try {
+          const errBody = await response.json();
+          if (errBody.error) errMsg = errBody.error;
+        } catch(e) {}
+        throw new Error(errMsg);
       }
 
       const result = await response.json();
       const data = result.data || [];
 
-      eventBus.emit('document:parsing:success', { count: data.length });
-      return data;
+      if (result.warning) {
+        eventBus.emit('document:parsing:warning', { warning: result.warning });
+      }
+
+      eventBus.emit('document:parsing:success', { count: data.length, warning: result.warning });
+      return { data, warning: result.warning };
     } catch (error) {
       eventBus.emit('document:parsing:error', { error });
       throw error;

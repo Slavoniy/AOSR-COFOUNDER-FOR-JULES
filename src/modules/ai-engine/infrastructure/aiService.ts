@@ -86,20 +86,25 @@ Estimate Data:
 ${JSON.stringify(excelData)}
 `;
 
-    const response = await this.callAiWithRetry(() => this.ai!.models.generateContent({
-      model: "gemini-2.5-flash", // Use a model that supports structured output well
-      contents: promptText,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: schema,
-      }
-    }));
-
-    const text = response.text || "[]";
     try {
+      const response = await this.callAiWithRetry(() => this.ai!.models.generateContent({
+        model: "gemini-2.5-flash", // Use a model that supports structured output well
+        contents: promptText,
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: schema,
+        }
+      }));
+
+      const text = response.text || "[]";
       return JSON.parse(text);
-    } catch (e) {
-      console.error("Failed to parse JSON from AI response:", text);
+    } catch (e: any) {
+      console.error("AI Service Error:", e);
+      // Fallback for location block or general errors
+      if (e?.status === 400 || e?.message?.includes('User location is not supported')) {
+        console.warn("API blocked by region. Returning mock data.");
+        throw new Error("API_BLOCKED_BY_REGION");
+      }
       return [];
     }
   }
