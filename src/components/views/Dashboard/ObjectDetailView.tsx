@@ -17,6 +17,7 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
   const [project, setProject] = useState<any>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [parsedData, setParsedData] = useState<EstimateDataRow[]>([]);
+  const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'warning' | 'error' } | null>(null);
 
   // Dictionaries state
   const [selectedDeveloper, setSelectedDeveloper] = useState('');
@@ -43,6 +44,13 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
     );
   }
 
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => setToastMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
   if (!project) {
     return (
       <div className="p-6">
@@ -55,7 +63,18 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
   }
 
   return (
-    <div className="space-y-6 h-full flex flex-col">
+    <div className="space-y-6 h-full flex flex-col relative">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className={`absolute top-4 right-4 z-50 px-4 py-3 rounded-lg shadow-lg border text-sm font-medium transition-all duration-300 ${
+          toastMessage.type === 'error' ? 'bg-red-50 border-red-200 text-red-800' :
+          toastMessage.type === 'warning' ? 'bg-yellow-50 border-yellow-200 text-yellow-800' :
+          'bg-green-50 border-green-200 text-green-800'
+        }`}>
+          {toastMessage.text}
+        </div>
+      )}
+
       <div className="flex items-center gap-4">
         <button
           onClick={() => navigate('/dashboard/objects')}
@@ -101,19 +120,30 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
                     if (!file) return;
                     setIsUploading(true);
                     try {
-                      const data = await documentService.parseEstimate(file);
-                      setParsedData(data.map((item, index) => ({
+                      const response = await documentService.parseEstimate(file);
+                      // Fallback support since documentService changed its return type
+                      const dataArray = Array.isArray(response) ? response : response.data;
+
+                      setParsedData(dataArray.map((item: any, index: number) => ({
                         id: `row-${index}`,
                         workName: item.workName,
                         materials: item.materials || 'Материалы согласно проекту',
                         quantity: item.quantity,
                         unit: item.unit
                       })));
-                    } catch (err) {
+
+                      if (!Array.isArray(response) && response.warning) {
+                        setToastMessage({ text: response.warning, type: 'warning' });
+                      } else {
+                        setToastMessage({ text: 'Смета успешно обработана', type: 'success' });
+                      }
+                    } catch (err: any) {
                       console.error('Upload error', err);
-                      alert('Ошибка парсинга сметы');
+                      setToastMessage({ text: `Ошибка парсинга сметы: ${err.message}`, type: 'error' });
                     } finally {
                       setIsUploading(false);
+                      // Reset file input so same file can be selected again if needed
+                      e.target.value = '';
                     }
                   }}
                 />

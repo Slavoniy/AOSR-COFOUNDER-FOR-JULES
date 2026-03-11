@@ -214,12 +214,26 @@ async function startServer() {
       const parsedData = EstimateParser.parseExcelBuffer(req.file.buffer);
 
       // Use AI to extract the structured works and materials
-      const aiResult = await aiService.parseEstimateData(parsedData);
-
-      res.json({ data: aiResult });
-    } catch (err) {
+      try {
+        const aiResult = await aiService.parseEstimateData(parsedData);
+        res.json({ data: aiResult });
+      } catch (aiErr: any) {
+        if (aiErr.message === "API_BLOCKED_BY_REGION") {
+          const mockData = [
+            { workName: "Монтаж металлоконструкций", materials: "Профиль стальной", quantity: 15, unit: "т" },
+            { workName: "Устройство бетонной стяжки", materials: "Бетон В15", quantity: 50, unit: "м3" },
+            { workName: "Окраска стен", materials: "Краска акриловая", quantity: 120, unit: "м2" }
+          ];
+          return res.json({
+            data: mockData,
+            warning: "API blocked by region. Using mock data for testing."
+          });
+        }
+        throw aiErr;
+      }
+    } catch (err: any) {
       console.error('Estimate parse error:', err);
-      res.status(500).json({ error: 'Failed to parse estimate file' });
+      res.status(500).json({ error: err.message || 'Failed to parse estimate file' });
     }
   });
 
