@@ -46,6 +46,20 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [authMode, setAuthMode] = useState<'login' | 'register'>('login');
   const [profileTab, setProfileTab] = useState<'projects' | 'estimates'>('projects');
+  const [projects, setProjects] = useState<Project[]>(() => projectService.getProjects());
+
+  const [subView, setSubView] = useState<'list' | 'estimate-detail' | 'projects' | 'create-project' | 'roadmap' | 'certificates' | 'future-plan'>('list');
+  const [selectedVector, setSelectedVector] = useState<number | null>(null);
+  const [currentActIndex, setCurrentActIndex] = useState(0);
+
+  const [certificates, setCertificates] = useState<any[]>([
+    { id: '1', name: 'Бетон Б25 П4 W6 F150', provider: 'Петрович', date: '12.01.2026', file: 'cert_beton_01.pdf', status: 'active' },
+    { id: '2', name: 'Арматура А500С d12', provider: 'Петрович', date: '05.02.2026', file: 'cert_arm_12.pdf', status: 'active' },
+  ]);
+  const [isParsingCerts, setIsParsingCerts] = useState(false);
+
+  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
+  const activeProject = projects.find(p => p.id === activeProjectId);
 
   useEffect(() => {
     const initAuth = async () => {
@@ -106,19 +120,6 @@ export default function App() {
       alert('Ошибка обновления статуса');
     }
   };
-  const [subView, setSubView] = useState<'list' | 'estimate-detail' | 'projects' | 'create-project' | 'roadmap' | 'certificates' | 'future-plan'>('list');
-  const [selectedVector, setSelectedVector] = useState<number | null>(null);
-  const [currentActIndex, setCurrentActIndex] = useState(0);
-  
-  const [certificates, setCertificates] = useState<any[]>([
-    { id: '1', name: 'Бетон Б25 П4 W6 F150', provider: 'Петрович', date: '12.01.2026', file: 'cert_beton_01.pdf', status: 'active' },
-    { id: '2', name: 'Арматура А500С d12', provider: 'Петрович', date: '05.02.2026', file: 'cert_arm_12.pdf', status: 'active' },
-  ]);
-  const [isParsingCerts, setIsParsingCerts] = useState(false);
-  
-  const [projects, setProjects] = useState<Project[]>(() => projectService.getProjects());
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const activeProject = projects.find(p => p.id === activeProjectId);
 
   const updateActInProject = (actId: string, field: keyof ActDetail, value: string) => {
     setProjects(prev => prev.map(p => {
