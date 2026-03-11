@@ -504,6 +504,21 @@ export default function App() {
 
 
   const PublicApp = () => {
+    if (view === 'home') {
+      return (
+        <HomeView
+          onLogin={() => {
+            setAuthMode('login');
+            setView('auth');
+          }}
+          onRegister={() => {
+            setAuthMode('register');
+            setView('auth');
+          }}
+        />
+      );
+    }
+
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center p-6 pb-24">
         {/* Navigation Bar */}
@@ -545,12 +560,7 @@ export default function App() {
             onLogin={handleLogin}
             onRegister={handleRegister}
           />
-        ) : (
-          <HomeView onSelectVector={(id) => {
-            if (id === 3) setView('mvp');
-            else alert('Этот вектор пока недоступен');
-          }} selectedVector={null} />
-        )}
+        ) : null}
       </div>
     );
   };
