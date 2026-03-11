@@ -3,128 +3,159 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { GoogleGenAI, ThinkingLevel, GenerateContentResponse, Type, Schema } from "@google/genai";
-
 export class AIService {
-  private ai: GoogleGenAI | null = null;
+  private apiKey: string | undefined;
+  private folderId: string | undefined;
 
   constructor() {
     try {
-      // Allow fallback if process is not defined or API key is missing
       const meta: any = import.meta;
-      const apiKey = typeof process !== 'undefined' ? process.env.GEMINI_API_KEY : meta.env?.VITE_GEMINI_API_KEY;
-      if (apiKey) {
-        this.ai = new GoogleGenAI({ apiKey });
-      }
+      this.apiKey = typeof process !== 'undefined' ? process.env.YANDEX_API_KEY : meta.env?.VITE_YANDEX_API_KEY;
+      this.folderId = typeof process !== 'undefined' ? process.env.YANDEX_FOLDER_ID : meta.env?.VITE_YANDEX_FOLDER_ID;
     } catch(e) {
       console.warn("AI Service not fully initialized", e);
     }
   }
 
-  async generateContent(prompt: string | any[], thinkingLevel: ThinkingLevel = ThinkingLevel.LOW): Promise<string> {
-    if (!this.ai) {
-      console.warn("Mock AI response returned");
-      return "{}";
+  private hasInlineData(prompt: string | any[]): boolean {
+    if (Array.isArray(prompt)) {
+      return prompt.some(item => typeof item === 'object' && item !== null && 'inlineData' in item);
     }
-    const response = await this.callAiWithRetry(() => this.ai!.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: prompt,
-      config: {
-        thinkingConfig: { thinkingLevel }
-      }
-    }));
-    return response.text || "";
+    return false;
   }
 
-  async generateJSON<T>(prompt: string | any[], thinkingLevel: ThinkingLevel = ThinkingLevel.LOW): Promise<T> {
-    if (!this.ai) {
-      console.warn("Mock AI JSON response returned");
-      return {} as T;
+  private extractTextFromPrompt(prompt: string | any[]): string {
+    if (typeof prompt === 'string') {
+      return prompt;
     }
-    const text = await this.generateContent(prompt, thinkingLevel);
-    const jsonMatch = text.match(/\{.*\}/s);
-    if (!jsonMatch) throw new Error("No JSON found in AI response");
-    return JSON.parse(jsonMatch[0]);
+    if (Array.isArray(prompt)) {
+      const textParts = prompt.filter(item => typeof item === 'object' && item !== null && 'text' in item).map(item => item.text);
+      if (textParts.length > 0) {
+        return textParts.join('\n');
+      }
+    }
+    return JSON.stringify(prompt);
+  }
+
+  private cleanJsonResponse(text: string): string {
+    // Remove markdown code blocks if present
+    let cleaned = text.trim();
+    if (cleaned.startsWith('```json')) {
+      cleaned = cleaned.substring(7);
+    } else if (cleaned.startsWith('```')) {
+      cleaned = cleaned.substring(3);
+    }
+    if (cleaned.endsWith('```')) {
+      cleaned = cleaned.substring(0, cleaned.length - 3);
+    }
+    return cleaned.trim();
+  }
+
+  async generateContent(prompt: string | any[]): Promise<string> {
+    if (!this.apiKey || !this.folderId) {
+      throw new Error("Yandex API Key or Folder ID not configured.");
+    }
+
+    if (this.hasInlineData(prompt)) {
+      console.warn("PDF/Image parsing is temporarily disabled pending Yandex Vision OCR integration.");
+      return "{}"; // Graceful fallback
+    }
+
+    const textPrompt = this.extractTextFromPrompt(prompt);
+
+    const body = {
+      modelUri: `gpt://${this.folderId}/yandexgpt/latest`,
+      completionOptions: {
+        stream: false,
+        temperature: 0.1,
+        maxTokens: 4000
+      },
+      messages: [
+        {
+          role: "user",
+          text: textPrompt
+        }
+      ]
+    };
+
+    const response = await this.callAiWithRetry(() => fetch('https://llm.api.cloud.yandex.net/foundationModels/v1/completion', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Api-Key ${this.apiKey}`
+      },
+      body: JSON.stringify(body)
+    }));
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Yandex API Error (${response.status}): ${errorText}`);
+    }
+
+    const data = await response.json();
+    return data.result?.alternatives?.[0]?.message?.text || "";
+  }
+
+  async generateJSON<T>(prompt: string | any[]): Promise<T> {
+    if (this.hasInlineData(prompt)) {
+      console.warn("PDF/Image parsing is temporarily disabled pending Yandex Vision OCR integration.");
+      return {} as T; // Graceful fallback
+    }
+
+    const text = await this.generateContent(prompt);
+    const cleanedText = this.cleanJsonResponse(text);
+
+    try {
+      return JSON.parse(cleanedText) as T;
+    } catch (e) {
+      console.error("Failed to parse JSON from AI response:", text);
+      throw new Error("Invalid JSON response from AI");
+    }
   }
 
   async parseEstimateData(excelData: any[][]): Promise<{ workName: string, materials: string, quantity: number, unit: string }[]> {
-    if (!this.ai) {
-      console.warn("Mock AI parse response returned");
-      return [];
+    if (!this.apiKey || !this.folderId) {
+      throw new Error("Yandex API Key or Folder ID not configured.");
     }
 
-    const schema: Schema = {
-      type: Type.ARRAY,
-      items: {
-        type: Type.OBJECT,
-        properties: {
-          workName: {
-            type: Type.STRING,
-            description: "The name of the construction work."
-          },
-          materials: {
-            type: Type.STRING,
-            description: "The materials used for this specific work, combined into a single string. If none, extract from work name."
-          },
-          quantity: {
-            type: Type.NUMBER,
-            description: "The numerical quantity of the work. Ignore if 0 or empty."
-          },
-          unit: {
-            type: Type.STRING,
-            description: "The unit of measurement for the work."
-          }
-        },
-        required: ["workName", "materials", "quantity", "unit"]
-      }
-    };
-
     const promptText = `You are an expert construction estimator. Analyze the provided 2D array of construction estimate data. Extract a list of construction works based on these strict rules: 1) Identify works (usually actions like Installation, Laying, Painting). 2) Identify materials used for each work. If materials are listed in the rows immediately below the work, combine them into a single string. If no material rows follow, extract the implied material directly from the work's name. 3) Extract the numerical Quantity and the Unit of measurement. 4) CRITICAL: Skip and completely ignore any work where the Quantity is 0 or empty. 5) CRITICAL CONTEXT FOR MAPPING: The extracted JSON will be used to automatically fill out an AOSR (Certificate of Concealed Works) template. Therefore, you must extract the data point-by-point. For every single construction work you identify, you must find and strictly associate ONLY the specific materials that belong to that exact work. Do not create a global list of materials. The output must perfectly link [Specific Work] -> [Materials used to execute this specific work] so it can be mapped to the document correctly.
-6) Return the data strictly according to the provided schema.
+
+Return ONLY a valid JSON array of objects with keys: id, workName, materials, quantity, unit, price, total. Do not include markdown formatting, backticks, or any conversational text.
 
 Estimate Data:
 ${JSON.stringify(excelData)}
 `;
 
-    try {
-      const response = await this.callAiWithRetry(() => this.ai!.models.generateContent({
-        model: "gemini-2.5-flash", // Use a model that supports structured output well
-        contents: promptText,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: schema,
-        }
-      }));
+    const text = await this.generateContent(promptText);
+    const cleanedText = this.cleanJsonResponse(text);
 
-      const text = response.text || "[]";
-      return JSON.parse(text);
-    } catch (e: any) {
-      console.error("AI Service Error:", e);
-      // Fallback for location block or general errors
-      if (e?.status === 400 || e?.message?.includes('User location is not supported')) {
-        console.warn("API blocked by region. Returning mock data.");
-        throw new Error("API_BLOCKED_BY_REGION");
-      }
-      return [];
+    try {
+      return JSON.parse(cleanedText);
+    } catch (e) {
+      console.error("Failed to parse Estimate JSON from AI response:", text);
+      throw new Error("Failed to parse the estimate");
     }
   }
 
-  private async callAiWithRetry(fn: () => Promise<any>, retries = 3): Promise<GenerateContentResponse> {
+  private async callAiWithRetry(fn: () => Promise<Response>, retries = 3): Promise<Response> {
     let lastError: any;
     for (let i = 0; i < retries; i++) {
       try {
-        return await fn();
-      } catch (error: any) {
-        lastError = error;
-        if (error?.status === 429) {
+        const response = await fn();
+        if (response.status === 429) {
           const wait = Math.pow(2, i) * 1000 + Math.random() * 1000;
           await new Promise(resolve => setTimeout(resolve, wait));
-          continue;
+          continue; // Retry on rate limit
         }
-        throw error;
+        return response;
+      } catch (error: any) {
+        lastError = error;
+        // Network errors or other fetch exceptions, retry
+        const wait = Math.pow(2, i) * 1000 + Math.random() * 1000;
+        await new Promise(resolve => setTimeout(resolve, wait));
       }
     }
-    throw lastError;
+    throw lastError || new Error("AI request failed after retries");
   }
 }
 
