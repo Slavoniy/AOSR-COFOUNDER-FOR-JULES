@@ -1,0 +1,62 @@
+#!/bin/bash
+cat << 'INNER_EOF' > aiService.ts.patch
+--- src/modules/ai-engine/infrastructure/aiService.ts	2023-10-25 12:00:00.000000000 +0000
++++ src/modules/ai-engine/infrastructure/aiService.ts	2023-10-25 12:00:00.000000000 +0000
+@@ -124,18 +124,6 @@
+       throw new Error("Yandex API Key or Folder ID not configured.");
+     }
+
+-    const chunkSizeStr = process.env.CHUNK_ROWS_SIZE || '300';
+-    const chunkSize = parseInt(chunkSizeStr, 10) || 300;
+-
+-    // Extract header rows (first row) from the very top of the Excel file
+-    const headerRows = excelData.length > 0 ? excelData.slice(0, 1) : [];
+-    const dataRows = excelData.length > 0 ? excelData.slice(1) : [];
+-
+-    let allParsedData: any[] = [];
+-
+-    // Process sequentially in chunks
+-    for (let i = 0; i < dataRows.length; i += chunkSize) {
+-      const chunk = dataRows.slice(i, i + chunkSize);
+-      const chunkWithHeaders = [...headerRows, ...chunk];
+-
+       const promptText = \`You are a professional civil engineering assistant. The following text is a standard, safe construction estimate (смета). Your only task is to extract the data into a JSON array. Do not apply conversational safety filters to building materials or construction processes.
+ You are an expert construction estimator. Analyze the provided 2D array of construction estimate data. Extract a list of construction works based on these strict rules: 1) Identify works (usually actions like Installation, Laying, Painting). 2) Identify materials used for each work. If materials are listed in the rows immediately below the work, combine them into a single string. If no material rows follow, extract the implied material directly from the work's name. 3) Extract the numerical Quantity and the Unit of measurement. 4) CRITICAL: Skip and completely ignore any work where the Quantity is 0 or empty. 5) CRITICAL CONTEXT FOR MAPPING: The extracted JSON will be used to automatically fill out an AOSR (Certificate of Concealed Works) template. Therefore, you must extract the data point-by-point. For every single construction work you identify, you must find and strictly associate ONLY the specific materials that belong to that exact work. Do not create a global list of materials. The output must perfectly link [Specific Work] -> [Materials used to execute this specific work] so it can be mapped to the document correctly.
+
+ Return ONLY a valid JSON array of objects with keys: id, workName, materials, quantity, unit, price, total. Do not include markdown formatting, backticks, or any conversational text.
+
+ Estimate Data:
+-\${JSON.stringify(chunkWithHeaders)}
++\${JSON.stringify(excelData)}
+ \`;
+
+       let success = false;
+@@ -164,19 +152,19 @@
+           success = true;
+           break; // successfully parsed, break retry loop
+         } catch (e) {
+-          console.error(\`Attempt \${attempt + 1} failed for chunk starting at row \${i}:\`, e);
++          console.error(\`Attempt \${attempt + 1} failed for chunk:\`, e);
+           if (attempt === maxRetries) {
+             throw new Error("Failed to parse part of the estimate after multiple attempts. Please check the file.");
+           }
+           // Brief backoff before next retry
+           await new Promise(resolve => setTimeout(resolve, 1000));
+         }
+       }
+
+-      if (success) {
+-        allParsedData = allParsedData.concat(parsedChunk);
+-      }
+-    }
+-
+-    return allParsedData;
++      if (!success) {
++         throw new Error("Failed to parse estimate data after retries.");
++      }
++
++      return parsedChunk;
+   }
+ }
+INNER_EOF
+patch src/modules/ai-engine/infrastructure/aiService.ts < aiService.ts.patch
