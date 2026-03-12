@@ -68,8 +68,8 @@ export default function App() {
       if (currentUser) {
         setIsAuthenticated(true);
         setUser(currentUser);
-        const myProjects = await projectService.fetchMyProjects();
-        setProjects(myProjects);
+        const projectsResponse = await projectService.fetchMyProjects();
+        setProjects(projectsResponse.data);
       }
     };
     initAuth();
@@ -83,8 +83,8 @@ export default function App() {
       const loggedUser = await authService.login(email, password);
       setIsAuthenticated(true);
       setUser(loggedUser);
-      const myProjects = await projectService.fetchMyProjects();
-      setProjects(myProjects);
+      const projectsResponse = await projectService.fetchMyProjects();
+      setProjects(projectsResponse.data);
       setView('profile');
     } catch (err) {
       alert('Ошибка входа');

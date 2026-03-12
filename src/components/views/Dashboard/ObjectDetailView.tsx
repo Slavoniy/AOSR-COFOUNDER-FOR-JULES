@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useProjects } from '../../../hooks/useProjects';
-import { ArrowLeft, Upload, FileText, Loader2, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Upload, FileText, Loader2, CheckCircle2, Search, Filter } from 'lucide-react';
 import { EditableActTable, EstimateDataRow } from './EditableActTable';
 import { eventBus } from '../../../modules/shared/infrastructure/eventBus';
 import { documentService } from '../../../modules/documents/application/documentService';
+import { Pagination } from '../../ui/Pagination';
 
 interface ObjectDetailViewProps {
   user: any;
@@ -22,6 +23,12 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
   const [uploadProgress, setUploadProgress] = useState<{ processed: number, total: number } | null>(null);
   const [toastMessage, setToastMessage] = useState<{ text: string; type: 'success' | 'warning' | 'error' } | null>(null);
 
+  // Pagination & Filters for the acts/estimates table
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
   // Dictionaries state
   const [selectedDeveloper, setSelectedDeveloper] = useState('');
   const [selectedContractor, setSelectedContractor] = useState('');
@@ -38,6 +45,28 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
       setProject(found || null);
     }
   }, [id, projects]);
+
+  // Client-side filtering and pagination
+  const filteredData = useMemo(() => {
+    return parsedData.filter(item => {
+      const matchesSearch = item.workName.toLowerCase().includes(searchQuery.toLowerCase());
+      // Note: Add status property mapping here when parsing is updated; returning true if 'all' for now
+      const matchesStatus = statusFilter === 'all' || (item as any).status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
+  }, [parsedData, searchQuery, statusFilter]);
+
+  const paginatedData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredData, currentPage, itemsPerPage]);
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
 
   useEffect(() => {
     const handleProgress = (data: any) => {
@@ -279,15 +308,65 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
               </div>
             </div>
 
+            {/* Toolbar for Search and Filters */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-gray-200">
+              <div className="relative w-full sm:w-72">
+                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                <input
+                  type="text"
+                  placeholder="Поиск по наименованию работ..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                />
+              </div>
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <Filter className="w-4 h-4 text-gray-500" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-auto bg-white"
+                >
+                  <option value="all">Все статусы</option>
+                  <option value="draft">Черновик (В работе)</option>
+                  <option value="review">На проверке</option>
+                  <option value="signed">Подписано</option>
+                  <option value="rejected">Отклонено</option>
+                </select>
+              </div>
+            </div>
+
             {/* Editable Table */}
             <div className="flex-1 overflow-hidden flex flex-col">
-              <EditableActTable data={parsedData} onChange={setParsedData} />
+              <EditableActTable
+                data={paginatedData}
+                onChange={(updatedPaginatedData) => {
+                  // Reconstruct full dataset
+                  const newData = [...parsedData];
+                  const startIndex = (currentPage - 1) * itemsPerPage;
+                  updatedPaginatedData.forEach((item, i) => {
+                    newData[startIndex + i] = item;
+                  });
+                  setParsedData(newData);
+                }}
+              />
+              <div className="mt-4">
+                <Pagination
+                  currentPage={currentPage}
+                  totalPages={totalPages}
+                  onPageChange={setCurrentPage}
+                />
+              </div>
             </div>
 
             {/* Action Buttons */}
             <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
               <button
-                onClick={() => setParsedData([])}
+                onClick={() => {
+                  setParsedData([]);
+                  setSearchQuery('');
+                  setCurrentPage(1);
+                }}
                 className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
               >
                 Отмена
