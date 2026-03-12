@@ -35,51 +35,51 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ user, onLogout
   return (
     <div className="flex h-screen bg-gray-50 overflow-hidden font-sans">
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col">
-        <div className="h-16 flex items-center px-6 border-b border-gray-200">
-          <Building2 className="w-6 h-6 text-blue-600 mr-2" />
-          <span className="text-xl font-bold text-gray-900">StroyDoc AI</span>
+      <aside className="w-64 bg-slate-900 flex flex-col shadow-xl z-10">
+        <div className="h-16 flex items-center px-6 border-b border-slate-800">
+          <Building2 className="w-6 h-6 text-blue-500 mr-2 drop-shadow-sm" />
+          <span className="text-xl font-bold text-white tracking-wide">StroyDoc AI</span>
         </div>
 
-        <nav className="flex-1 py-4 px-3 space-y-1">
+        <nav className="flex-1 py-6 px-4 space-y-1.5 overflow-y-auto">
           {navItems.map((item) => (
             <NavLink
               key={item.to}
               to={item.to}
               end={item.to === '/dashboard'} // exact match for dashboard home
               className={({ isActive }) =>
-                `flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+                `flex items-center px-3 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${
                   isActive
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-blue-600 text-white shadow-md shadow-blue-500/20'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`
               }
             >
-              <item.icon className="w-5 h-5 mr-3 flex-shrink-0" />
+              <item.icon className={`w-5 h-5 mr-3 flex-shrink-0 transition-colors`} />
               {item.label}
             </NavLink>
           ))}
         </nav>
 
-        <div className="p-4 border-t border-gray-200">
+        <div className="p-4 border-t border-slate-800 bg-slate-900/50">
           <div className="flex items-center mb-4 px-2">
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold mr-3">
+            <div className="w-9 h-9 rounded-full bg-slate-800 flex items-center justify-center text-blue-400 font-bold mr-3 border border-slate-700 shadow-sm">
               {user?.name?.charAt(0) || <UserIcon className="w-4 h-4" />}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-gray-900 truncate">
+              <p className="text-sm font-medium text-white truncate">
                 {user?.name || 'Пользователь'}
               </p>
-              <p className="text-xs text-gray-500 truncate">
+              <p className="text-xs text-slate-400 truncate mt-0.5">
                 {user?.role === 'ADMIN' ? 'Администратор' : 'Инженер ПТО'}
               </p>
             </div>
           </div>
           <button
             onClick={handleLogout}
-            className="flex items-center w-full px-3 py-2 text-sm font-medium text-red-600 rounded-lg hover:bg-red-50 transition-colors"
+            className="flex items-center w-full px-3 py-2.5 text-sm font-medium text-red-400 rounded-xl hover:bg-red-500/10 hover:text-red-300 transition-colors group"
           >
-            <LogOut className="w-5 h-5 mr-3 flex-shrink-0" />
+            <LogOut className="w-5 h-5 mr-3 flex-shrink-0 group-hover:scale-110 transition-transform" />
             Выйти
           </button>
         </div>
