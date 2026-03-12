@@ -16,6 +16,7 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
   const { projects, setProjects } = useProjects(!!user);
 
   const [project, setProject] = useState<any>(null);
+  const [activeTab, setActiveTab] = useState<'general' | 'estimates' | 'documents'>('general');
   const [isUploading, setIsUploading] = useState(false);
   const [parsedData, setParsedData] = useState<EstimateDataRow[]>([]);
   const [uploadProgress, setUploadProgress] = useState<{ processed: number, total: number } | null>(null);
@@ -92,21 +93,79 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
         </div>
       )}
 
-      <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate('/dashboard/objects')}
-          className="p-2 bg-white rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{project.name}</h1>
-          <p className="text-sm text-gray-500">{project.object}</p>
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/dashboard/objects')}
+            className="p-2 bg-white rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors shadow-sm"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <div>
+            <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
+            <p className="text-sm text-slate-500">{project.object}</p>
+          </div>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 flex-1 flex flex-col">
-        <h3 className="text-lg font-bold mb-4">Сметы и акты</h3>
+      <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200 w-fit">
+        <button
+          onClick={() => setActiveTab('general')}
+          className={`px-6 py-2 text-sm font-bold rounded-xl transition-all ${activeTab === 'general' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          Общая информация
+        </button>
+        <button
+          onClick={() => setActiveTab('estimates')}
+          className={`px-6 py-2 text-sm font-bold rounded-xl transition-all ${activeTab === 'estimates' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          Сметы и акты
+        </button>
+        <button
+          onClick={() => setActiveTab('documents')}
+          className={`px-6 py-2 text-sm font-bold rounded-xl transition-all ${activeTab === 'documents' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          Документы
+        </button>
+      </div>
+
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-8 flex-1 flex flex-col overflow-hidden">
+        {activeTab === 'general' && (
+          <div className="space-y-6 overflow-y-auto">
+            <h3 className="text-xl font-bold text-slate-900">Сведения об объекте</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="text-xs font-bold text-slate-400 uppercase mb-2">Застройщик</div>
+                <div className="font-bold text-slate-900">{project.developer?.name || 'Не указан'}</div>
+                <div className="text-sm text-slate-500 mt-1">{project.developer?.requisites}</div>
+              </div>
+              <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="text-xs font-bold text-slate-400 uppercase mb-2">Генподрядчик</div>
+                <div className="font-bold text-slate-900">{project.contractor?.name || 'Не указан'}</div>
+                <div className="text-sm text-slate-500 mt-1">{project.contractor?.requisites}</div>
+              </div>
+              <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="text-xs font-bold text-slate-400 uppercase mb-2">Проектировщик</div>
+                <div className="font-bold text-slate-900">{project.designer?.name || 'Не указан'}</div>
+                <div className="text-sm text-slate-500 mt-1">{project.designer?.requisites}</div>
+              </div>
+              <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="text-xs font-bold text-slate-400 uppercase mb-2">Статистика</div>
+                <div className="font-bold text-slate-900">Актов: {project.acts?.length || 0}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'documents' && (
+          <div className="flex flex-col items-center justify-center h-full text-slate-500 space-y-4">
+            <FileText className="w-16 h-16 text-slate-300" />
+            <p className="text-lg">Раздел архива документов в разработке</p>
+          </div>
+        )}
+
+        {activeTab === 'estimates' && (
+          <>
 
         {parsedData.length === 0 ? (
           <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer group mb-6">
@@ -254,6 +313,8 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
               </button>
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
     </div>
