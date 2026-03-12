@@ -32,6 +32,7 @@ import { RegistryView } from './components/views/Dashboard/RegistryView';
 import { DictionariesView } from './components/views/Dashboard/DictionariesView';
 import { SettingsView } from './components/views/Dashboard/SettingsView';
 import { HomeView } from './components/views/HomeView';
+import { DashboardProfileView } from './components/views/Dashboard/DashboardProfileView';
 
 import { ProfileView } from './components/views/ProfileView';
 import { MVPView } from './components/views/MVPView';
@@ -578,6 +579,7 @@ export default function App() {
               <Route path="registry" element={<RegistryView user={user} />} />
               <Route path="dictionaries" element={<DictionariesView user={user} />} />
               <Route path="settings" element={<SettingsView user={user} />} />
+              <Route path="profile" element={<DashboardProfileView user={user} />} />
             </Route>
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </>

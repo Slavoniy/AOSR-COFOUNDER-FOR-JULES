@@ -3,12 +3,16 @@ import { BookMarked, Users, Building, Plus } from 'lucide-react';
 
 export const DictionariesView: React.FC<{user: any}> = () => {
   const [activeTab, setActiveTab] = useState<'companies' | 'signatories'>('companies');
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   return (
     <div className="space-y-6 h-full flex flex-col">
       <div className="flex justify-between items-center">
         <h1 className="text-2xl font-bold text-gray-900">Справочники</h1>
-        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center shadow-sm">
+        <button
+          onClick={() => setIsModalOpen(true)}
+          className="bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center shadow-sm"
+        >
           <Plus className="w-5 h-5 mr-2" />
           {activeTab === 'companies' ? 'Добавить компанию' : 'Добавить подписанта'}
         </button>
@@ -55,13 +59,89 @@ export const DictionariesView: React.FC<{user: any}> = () => {
                 ? 'Добавьте реквизиты Заказчика, Подрядчика или Проектировщика, чтобы использовать их при автоматической генерации актов.'
                 : 'Сохраните ФИО, должности и документы-основания представителей, чтобы не вводить их каждый раз вручную.'}
             </p>
-            <button className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm inline-flex items-center">
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm inline-flex items-center"
+            >
               <Plus className="w-5 h-5 mr-2" />
               {activeTab === 'companies' ? 'Создать карточку компании' : 'Создать карточку подписанта'}
             </button>
           </div>
         </div>
       </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-xl font-bold text-slate-900">
+                {activeTab === 'companies' ? 'Новая компания' : 'Новый подписант'}
+              </h2>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="p-6 overflow-y-auto max-h-[70vh]">
+              <form className="space-y-4">
+                {activeTab === 'companies' ? (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Название компании <span className="text-red-500">*</span></label>
+                      <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder='ООО "Ромашка"' />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 uppercase">ИНН / ОГРН</label>
+                      <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="ИНН 7700000000" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Данные СРО</label>
+                      <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Номер в реестре..." />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Юридический адрес</label>
+                      <textarea className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all h-20" placeholder="г. Москва, ул. Пушкина..." />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 uppercase">ФИО <span className="text-red-500">*</span></label>
+                      <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Иванов Иван Иванович" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Должность</label>
+                      <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Генеральный директор" />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-xs font-bold text-slate-500 uppercase">Основание полномочий</label>
+                      <input type="text" className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-500 transition-all" placeholder="Устав / Приказ №1" />
+                    </div>
+                  </>
+                )}
+              </form>
+            </div>
+
+            <div className="p-6 border-t border-slate-100 bg-slate-50 flex justify-end gap-3">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-6 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-200 transition-colors border border-slate-300 bg-white"
+              >
+                Отмена
+              </button>
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition-colors shadow-sm"
+              >
+                Сохранить
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
