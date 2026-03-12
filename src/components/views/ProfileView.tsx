@@ -389,7 +389,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {projects.map((project) => (
+                {(projects || []).map((project) => (
                   <div
                     key={project.id}
                     onClick={() => {

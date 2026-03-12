@@ -40,16 +40,16 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
   const designers = ['ООО "ПроектЦентр"', 'ЗАО "ИнжПроект"'];
 
   useEffect(() => {
-    if (projects.length > 0) {
-      const found = projects.find(p => p.id === id);
+    if ((projects || []).length > 0) {
+      const found = (projects || []).find(p => p.id === id);
       setProject(found || null);
     }
   }, [id, projects]);
 
   // Client-side filtering and pagination
   const filteredData = useMemo(() => {
-    return parsedData.filter(item => {
-      const matchesSearch = item.workName.toLowerCase().includes(searchQuery.toLowerCase());
+    return (parsedData || []).filter(item => {
+      const matchesSearch = item.workName?.toLowerCase().includes(searchQuery.toLowerCase());
       // Note: Add status property mapping here when parsing is updated; returning true if 'all' for now
       const matchesStatus = statusFilter === 'all' || (item as any).status === statusFilter;
       return matchesSearch && matchesStatus;
@@ -58,10 +58,10 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
 
   const paginatedData = useMemo(() => {
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredData.slice(startIndex, startIndex + itemsPerPage);
+    return (filteredData || []).slice(startIndex, startIndex + itemsPerPage);
   }, [filteredData, currentPage, itemsPerPage]);
 
-  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
+  const totalPages = Math.ceil((filteredData || []).length / itemsPerPage);
 
   // Reset page when filters change
   useEffect(() => {
@@ -83,7 +83,7 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
     return () => eventBus.off('document:parsing:progress', handleProgress);
   }, []);
 
-  if (!project && projects.length === 0) {
+  if (!project && (projects || []).length === 0) {
     return (
       <div className="flex justify-center items-center h-full">
         <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
@@ -196,7 +196,7 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
         {activeTab === 'estimates' && (
           <>
 
-        {parsedData.length === 0 ? (
+        {(parsedData || []).length === 0 ? (
           <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer group mb-6">
             {isUploading ? (
               <div className="flex flex-col items-center">
@@ -377,13 +377,13 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
                     alert('Пожалуйста, выберите Заказчика и Подрядчика');
                     return;
                   }
-                  if (parsedData.length === 0) {
+                  if ((parsedData || []).length === 0) {
                     alert('Нет данных для генерации актов');
                     return;
                   }
                   // Generate logic placeholder
                   console.log("Generating with data:", { parsedData, selectedDeveloper, selectedContractor, selectedDesigner });
-                  alert(`Готово к генерации! ${parsedData.length} актов будет создано.`);
+                  alert(`Готово к генерации! ${(parsedData || []).length} актов будет создано.`);
                 }}
                 className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center shadow-sm"
               >
