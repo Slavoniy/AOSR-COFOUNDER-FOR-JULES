@@ -8,8 +8,10 @@ export const useProjects = (isAuthenticated: boolean) => {
 
   useEffect(() => {
     if (isAuthenticated) {
+      // NOTE: ObjectsView will handle its own fetching logic if it needs pagination params.
+      // We still do an initial load here for views that just need *any* projects quickly.
       projectService.fetchMyProjects()
-        .then(setProjects)
+        .then(res => setProjects(res.data))
         .catch(err => {
           console.error("Failed to fetch projects:", err);
           setProjects([]); // Fallback

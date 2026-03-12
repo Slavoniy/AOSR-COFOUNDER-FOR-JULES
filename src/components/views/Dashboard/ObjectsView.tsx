@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useProjects } from '../../../hooks/useProjects';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Plus, FolderOpen, Search } from 'lucide-react';
+import { Building2, Plus, FolderOpen, Search, Filter } from 'lucide-react';
+import { projectService } from '../../../modules/projects/application/projectService';
+import { Project } from '../../../modules/shared/domain/types';
+import { Pagination } from '../../ui/Pagination';
 
 interface ObjectsViewProps {
   user: any;
@@ -9,22 +12,55 @@ interface ObjectsViewProps {
 
 export const ObjectsView: React.FC<ObjectsViewProps> = ({ user }) => {
   const navigate = useNavigate();
-  const { projects, handleCreateProject } = useProjects(!!user);
+  const { handleCreateProject } = useProjects(!!user);
   const [loading, setLoading] = useState(true);
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  // Pagination & Filter state
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
+  const [sort, setSort] = useState<'newest' | 'oldest'>('newest');
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const limit = 6;
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newObjectName, setNewObjectName] = useState('');
   const [newObjectAddress, setNewObjectAddress] = useState('');
 
+  // Debounce search
   useEffect(() => {
-    // Simulate loading for the skeleton effect
-    const timer = setTimeout(() => setLoading(false), 600);
-    return () => clearTimeout(timer);
-  }, [projects]);
+    const handler = setTimeout(() => {
+      setDebouncedSearch(search);
+      setPage(1); // Reset page on new search
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [search]);
 
-  const filteredProjects = projects.filter(p => p.name.toLowerCase().includes(search.toLowerCase()));
+  // Fetch paginated data
+  useEffect(() => {
+    const fetchProjects = async () => {
+      setLoading(true);
+      try {
+        const response = await projectService.fetchMyProjects({
+          page,
+          limit,
+          search: debouncedSearch,
+          sort
+        });
+        setProjects(response.data);
+        setTotalPages(response.totalPages);
+      } catch (error) {
+        console.error("Failed to load projects", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (user) fetchProjects();
+  }, [user, page, debouncedSearch, sort]);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,8 +91,8 @@ export const ObjectsView: React.FC<ObjectsViewProps> = ({ user }) => {
       </div>
 
       <div className="flex-1 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
-        <div className="p-4 border-b border-gray-100 flex justify-between items-center bg-gray-50/50">
-          <div className="relative w-72">
+        <div className="p-4 border-b border-gray-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-gray-50/50">
+          <div className="relative w-full sm:w-72">
             <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
             <input
               type="text"
@@ -66,9 +102,21 @@ export const ObjectsView: React.FC<ObjectsViewProps> = ({ user }) => {
               className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
             />
           </div>
+
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Filter className="w-4 h-4 text-gray-500" />
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as 'newest' | 'oldest')}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-auto"
+            >
+              <option value="newest">Сначала новые</option>
+              <option value="oldest">Сначала старые</option>
+            </select>
+          </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 overflow-auto p-4 flex flex-col">
           {loading ? (
             <div className="space-y-4">
               {[1, 2, 3].map(i => (
@@ -81,16 +129,16 @@ export const ObjectsView: React.FC<ObjectsViewProps> = ({ user }) => {
                 </div>
               ))}
             </div>
-          ) : filteredProjects.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center py-12">
+          ) : projects.length === 0 ? (
+            <div className="h-full flex flex-col items-center justify-center text-center py-12 flex-1">
               <div className="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mb-6">
                 <FolderOpen className="w-10 h-10 text-blue-500" />
               </div>
               <h3 className="text-lg font-bold text-gray-900 mb-2">Нет добавленных объектов</h3>
               <p className="text-gray-500 max-w-md mb-8">
-                {search ? "По вашему запросу ничего не найдено. Попробуйте изменить параметры поиска." : "Создайте первый объект, чтобы начать работу с документацией и актами освидетельствования скрытых работ."}
+                {debouncedSearch ? "По вашему запросу ничего не найдено. Попробуйте изменить параметры поиска." : "Создайте первый объект, чтобы начать работу с документацией и актами освидетельствования скрытых работ."}
               </p>
-              {!search && (
+              {!debouncedSearch && (
                 <button
                   onClick={() => setIsModalOpen(true)}
                   className="bg-blue-600 text-white px-6 py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors shadow-sm"
@@ -100,9 +148,10 @@ export const ObjectsView: React.FC<ObjectsViewProps> = ({ user }) => {
               )}
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-               {filteredProjects.map(project => (
-                 <div key={project.id} onClick={() => navigate(`/dashboard/objects/${project.id}`)} className="border border-gray-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer bg-white group">
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1">
+                 {projects.map(project => (
+                   <div key={project.id} onClick={() => navigate(`/dashboard/objects/${project.id}`)} className="border border-gray-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer bg-white group h-max">
                    <div className="flex items-start justify-between mb-4">
                      <div className="bg-blue-50 p-3 rounded-lg group-hover:bg-blue-100 transition-colors">
                        <Building2 className="w-6 h-6 text-blue-600" />
@@ -120,9 +169,17 @@ export const ObjectsView: React.FC<ObjectsViewProps> = ({ user }) => {
                      </div>
                      <span className="text-blue-600 text-sm font-medium hover:underline">Открыть</span>
                    </div>
-                 </div>
-               ))}
-            </div>
+                   </div>
+                 ))}
+              </div>
+              <div className="mt-4">
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                  onPageChange={setPage}
+                />
+              </div>
+            </>
           )}
         </div>
       </div>
