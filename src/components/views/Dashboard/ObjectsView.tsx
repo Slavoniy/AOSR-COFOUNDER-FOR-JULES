@@ -49,8 +49,8 @@ export const ObjectsView: React.FC<ObjectsViewProps> = ({ user }) => {
           search: debouncedSearch,
           sort
         });
-        setProjects(response.data);
-        setTotalPages(response.totalPages);
+        setProjects(response.data || []);
+        setTotalPages(response.totalPages || 1);
       } catch (error) {
         console.error("Failed to load projects", error);
       } finally {
@@ -129,7 +129,7 @@ export const ObjectsView: React.FC<ObjectsViewProps> = ({ user }) => {
                 </div>
               ))}
             </div>
-          ) : projects.length === 0 ? (
+          ) : (projects || []).length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center py-12 flex-1">
               <div className="bg-blue-50 w-20 h-20 rounded-full flex items-center justify-center mb-6">
                 <FolderOpen className="w-10 h-10 text-blue-500" />
@@ -150,7 +150,7 @@ export const ObjectsView: React.FC<ObjectsViewProps> = ({ user }) => {
           ) : (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 flex-1">
-                 {projects.map(project => (
+                 {(projects || []).map(project => (
                    <div key={project.id} onClick={() => navigate(`/dashboard/objects/${project.id}`)} className="border border-gray-200 rounded-xl p-5 hover:border-blue-300 hover:shadow-md transition-all cursor-pointer bg-white group h-max">
                    <div className="flex items-start justify-between mb-4">
                      <div className="bg-blue-50 p-3 rounded-lg group-hover:bg-blue-100 transition-colors">
@@ -165,7 +165,7 @@ export const ObjectsView: React.FC<ObjectsViewProps> = ({ user }) => {
 
                    <div className="border-t border-gray-100 pt-4 flex justify-between items-center">
                      <div className="text-sm font-medium text-gray-700">
-                       Актов: <span className="text-blue-600 bg-blue-50 px-2 py-0.5 rounded ml-1">{project.acts.length}</span>
+                       Актов: <span className="text-blue-600 bg-blue-50 px-2 py-0.5 rounded ml-1">{project.acts?.length || 0}</span>
                      </div>
                      <span className="text-blue-600 text-sm font-medium hover:underline">Открыть</span>
                    </div>

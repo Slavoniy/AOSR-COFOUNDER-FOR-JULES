@@ -47,7 +47,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ user, onLogout
       const response = await fetch('/api/my-projects');
       if (response.ok) {
         const data = await response.json();
-        setProjects(data);
+        setProjects(data.data || (Array.isArray(data) ? data : []));
       }
     } catch (err) {
       console.error('Failed to fetch projects:', err);
@@ -193,7 +193,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ user, onLogout
                 >
                   Все объекты
                 </NavLink>
-                {projects.map(project => (
+                {(projects || []).map(project => (
                   <NavLink
                     key={project.id}
                     to={`/dashboard/objects/${project.id}`}
