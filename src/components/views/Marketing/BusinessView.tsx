@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Users, Zap, Layers, Target, BarChart3, Briefcase, CheckCircle2 } from 'lucide-react';
-import { BMC_DATA } from '../../modules/shared/domain/constants';
+import { BMC_DATA } from '../../../modules/shared/domain/constants';
 
 interface BusinessViewProps {
   onBack: () => void;

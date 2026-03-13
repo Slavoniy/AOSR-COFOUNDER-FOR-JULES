@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, ShieldCheck, CheckCircle2, AlertCircle, Target, Zap, FileText, Users } from 'lucide-react';
-import { COMPETITORS } from '../../modules/shared/domain/constants';
+import { COMPETITORS } from '../../../modules/shared/domain/constants';
 
 interface AnalysisViewProps {
   onBack: () => void;

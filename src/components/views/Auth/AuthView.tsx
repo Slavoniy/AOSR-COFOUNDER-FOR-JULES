@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { motion } from 'motion/react';
 import { Lock, UserCheck } from 'lucide-react';
-import { Button } from '../ui/Button';
-import { Input } from '../ui/Input';
+import { Button } from '../../ui/Button';
+import { Input } from '../../ui/Input';
 
 interface AuthViewProps {
   onLogin: (e: React.FormEvent) => Promise<void>;

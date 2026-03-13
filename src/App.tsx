@@ -25,18 +25,18 @@ import { VECTORS } from './modules/shared/domain/constants';
 
 import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { DashboardLayout } from './components/layout/DashboardLayout';
-import { DashboardHomeView } from './components/views/Dashboard/DashboardHomeView';
-import { ObjectsView } from './components/views/Dashboard/ObjectsView';
-import { ObjectDetailView } from './components/views/Dashboard/ObjectDetailView';
-import { RegistryView } from './components/views/Dashboard/RegistryView';
-import { DictionariesView } from './components/views/Dashboard/DictionariesView';
-import { SettingsView } from './components/views/Dashboard/SettingsView';
-import { HomeView } from './components/views/HomeView';
-import { DashboardProfileView } from './components/views/Dashboard/DashboardProfileView';
+import { DashboardHomeView } from './components/views/Dashboard/Projects/DashboardHomeView';
+import { ObjectsView } from './components/views/Dashboard/Projects/ObjectsView';
+import { ObjectDetailView } from './components/views/Dashboard/Projects/ObjectDetailView';
+import { RegistryView } from './components/views/Dashboard/Projects/RegistryView';
+import { DictionariesView } from './components/views/Dashboard/Directories/DictionariesView';
+import { SettingsView } from './components/views/Dashboard/Settings/SettingsView';
+import { HomeView } from './components/views/Marketing/HomeView';
+import { DashboardProfileView } from './components/views/Dashboard/Profile/DashboardProfileView';
 
-import { ProfileView } from './components/views/ProfileView';
-import { MVPView } from './components/views/MVPView';
-import { AuthView } from './components/views/AuthView';
+import { ProfileView } from './components/views/Dashboard/Profile/ProfileView';
+import { MVPView } from './components/views/Marketing/MVPView';
+import { AuthView } from './components/views/Auth/AuthView';
 
 
 const vectors = VECTORS;
