@@ -6,6 +6,7 @@ import { EditableActTable, EstimateDataRow } from './EditableActTable';
 import { eventBus } from '../../../modules/shared/infrastructure/eventBus';
 import { documentService } from '../../../modules/documents/application/documentService';
 import { Pagination } from '../../ui/Pagination';
+import { ActCreateForm } from '../Acts/ActCreateForm';
 
 interface ObjectDetailViewProps {
   user: any;
@@ -26,6 +27,7 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
   // Pagination & Filters for the acts/estimates table
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [isCreatingAct, setIsCreatingAct] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
 
@@ -195,205 +197,241 @@ export const ObjectDetailView: React.FC<ObjectDetailViewProps> = ({ user }) => {
 
         {activeTab === 'estimates' && (
           <>
+            {isCreatingAct ? (
+              <div className="bg-white rounded-xl border border-slate-200 p-6 shadow-sm h-full overflow-y-auto">
+                <ActCreateForm
+                  onSubmit={(data) => {
+                    console.log('Act created:', data);
+                    setIsCreatingAct(false);
+                    setToastMessage({ text: 'Акт успешно создан', type: 'success' });
+                  }}
+                  onCancel={() => setIsCreatingAct(false)}
+                />
+              </div>
+            ) : (parsedData || []).length === 0 ? (
+              <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-gray-50 hover:bg-gray-100 transition-colors group mb-6 flex-1">
+                {isUploading ? (
+                  <div className="flex flex-col items-center">
+                    <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-4" />
+                    <h4 className="text-lg font-medium text-gray-900">Анализируем смету...</h4>
+                    <p className="text-sm text-gray-500">Пожалуйста, подождите, ИИ извлекает работы и материалы.</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center w-full h-full">
+                    <label className="flex flex-col items-center justify-center w-full cursor-pointer mb-6">
+                      <div className="bg-white p-4 rounded-full shadow-sm mb-4 group-hover:scale-105 transition-transform">
+                        <Upload className="w-8 h-8 text-blue-500" />
+                      </div>
+                      <h4 className="text-lg font-medium text-gray-900 mb-1">Загрузите смету</h4>
+                      <p className="text-sm text-gray-500 max-w-sm mb-4">
+                        Перетащите файл Excel (.xlsx, .xls) или нажмите для выбора файла на устройстве
+                      </p>
+                      <div className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors">
+                        Выбрать файл
+                      </div>
+                      <input
+                        type="file"
+                        className="hidden"
+                        accept=".xlsx, .xls"
+                        onChange={async (e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setIsUploading(true);
+                          setUploadProgress(null);
+                          try {
+                            const response = await documentService.parseEstimate(file);
+                            // Fallback support since documentService changed its return type
+                            const respData = response as any;
+                            const dataArray = Array.isArray(respData) ? respData : respData.data;
 
-        {(parsedData || []).length === 0 ? (
-          <div className="border-2 border-dashed border-gray-300 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer group mb-6">
-            {isUploading ? (
-              <div className="flex flex-col items-center">
-                <Loader2 className="w-10 h-10 animate-spin text-blue-500 mb-4" />
-                <h4 className="text-lg font-medium text-gray-900">Анализируем смету...</h4>
-                <p className="text-sm text-gray-500">Пожалуйста, подождите, ИИ извлекает работы и материалы.</p>
+                            setParsedData(dataArray.map((item: any, index: number) => ({
+                              id: `row-${index}`,
+                              workName: item.workName,
+                              materials: item.materials || 'Материалы согласно проекту',
+                              quantity: item.quantity,
+                              unit: item.unit
+                            })));
+
+                            if (!Array.isArray(respData) && respData.warning) {
+                              setToastMessage({ text: respData.warning, type: 'warning' });
+                            } else {
+                              setToastMessage({ text: 'Смета успешно обработана', type: 'success' });
+                            }
+                          } catch (err: any) {
+                            console.error('Upload error', err);
+                            setToastMessage({ text: `Ошибка парсинга сметы: ${err.message}`, type: 'error' });
+                          } finally {
+                            setIsUploading(false);
+                            setUploadProgress(null);
+                            // Reset file input so same file can be selected again if needed
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                    </label>
+
+                    <div className="flex items-center gap-4 w-full max-w-sm">
+                      <div className="h-px bg-gray-300 flex-1"></div>
+                      <span className="text-sm text-gray-500 font-medium">ИЛИ</span>
+                      <div className="h-px bg-gray-300 flex-1"></div>
+                    </div>
+
+                    <button
+                      onClick={() => setIsCreatingAct(true)}
+                      className="mt-6 bg-white border-2 border-blue-600 text-blue-600 px-6 py-2.5 rounded-lg text-sm font-bold hover:bg-blue-50 transition-colors shadow-sm"
+                    >
+                      + Создать акт вручную
+                    </button>
+                  </div>
+                )}
+
+                {isUploading && uploadProgress && (
+                  <div className="mt-4 w-full max-w-sm mx-auto">
+                    <div className="flex justify-between text-sm text-gray-600 mb-1">
+                      <span>Обработка строк...</span>
+                      <span>{Math.round((uploadProgress.processed / uploadProgress.total) * 100)}% ({uploadProgress.processed} / {uploadProgress.total} частей)</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${(uploadProgress.processed / uploadProgress.total) * 100}%` }}></div>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : (
-              <label className="flex flex-col items-center justify-center w-full h-full cursor-pointer">
-                <div className="bg-white p-4 rounded-full shadow-sm mb-4 group-hover:scale-105 transition-transform">
-                  <Upload className="w-8 h-8 text-blue-500" />
+              <div className="flex flex-col h-full space-y-6">
+                {/* Dictionaries Selection */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Заказчик</label>
+                    <select
+                      value={selectedDeveloper}
+                      onChange={e => setSelectedDeveloper(e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      <option value="">Выберите заказчика...</option>
+                      {developers.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Подрядчик</label>
+                    <select
+                      value={selectedContractor}
+                      onChange={e => setSelectedContractor(e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      <option value="">Выберите подрядчика...</option>
+                      {contractors.map(c => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Проектировщик</label>
+                    <select
+                      value={selectedDesigner}
+                      onChange={e => setSelectedDesigner(e.target.value)}
+                      className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    >
+                      <option value="">Выберите проектировщика...</option>
+                      {designers.map(d => <option key={d} value={d}>{d}</option>)}
+                    </select>
+                  </div>
                 </div>
-                <h4 className="text-lg font-medium text-gray-900 mb-1">Загрузите смету</h4>
-                <p className="text-sm text-gray-500 max-w-sm mb-4">
-                  Перетащите файл Excel (.xlsx, .xls) или нажмите для выбора файла на устройстве
-                </p>
-                <div className="bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-lg font-medium hover:bg-gray-50 transition-colors">
-                  Выбрать файл
+
+                {/* Toolbar for Search and Filters */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-gray-200">
+                  <div className="relative w-full sm:w-72">
+                    <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
+                    <input
+                      type="text"
+                      placeholder="Поиск по наименованию работ..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-4 w-full sm:w-auto">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <Filter className="w-4 h-4 text-gray-500" />
+                      <select
+                        value={statusFilter}
+                        onChange={(e) => setStatusFilter(e.target.value)}
+                        className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-auto bg-white"
+                      >
+                        <option value="all">Все статусы</option>
+                        <option value="draft">Черновик (В работе)</option>
+                        <option value="review">На проверке</option>
+                        <option value="signed">Подписано</option>
+                        <option value="rejected">Отклонено</option>
+                      </select>
+                    </div>
+
+                    <button
+                      onClick={() => setIsCreatingAct(true)}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm whitespace-nowrap"
+                    >
+                      + Создать акт
+                    </button>
+                  </div>
                 </div>
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".xlsx, .xls"
-                  onChange={async (e) => {
-                    const file = e.target.files?.[0];
-                    if (!file) return;
-                    setIsUploading(true);
-                    setUploadProgress(null);
-                    try {
-                      const response = await documentService.parseEstimate(file);
-                      // Fallback support since documentService changed its return type
-                      const respData = response as any;
-                      const dataArray = Array.isArray(respData) ? respData : respData.data;
 
-                      setParsedData(dataArray.map((item: any, index: number) => ({
-                        id: `row-${index}`,
-                        workName: item.workName,
-                        materials: item.materials || 'Материалы согласно проекту',
-                        quantity: item.quantity,
-                        unit: item.unit
-                      })));
+                {/* Editable Table */}
+                <div className="flex-1 overflow-hidden flex flex-col">
+                  <EditableActTable
+                    data={paginatedData}
+                    onChange={(updatedPaginatedData) => {
+                      // Reconstruct full dataset
+                      const newData = [...parsedData];
+                      const startIndex = (currentPage - 1) * itemsPerPage;
+                      updatedPaginatedData.forEach((item, i) => {
+                        newData[startIndex + i] = item;
+                      });
+                      setParsedData(newData);
+                    }}
+                  />
+                  <div className="mt-4">
+                    <Pagination
+                      currentPage={currentPage}
+                      totalPages={totalPages}
+                      onPageChange={setCurrentPage}
+                    />
+                  </div>
+                </div>
 
-                      if (!Array.isArray(respData) && respData.warning) {
-                        setToastMessage({ text: respData.warning, type: 'warning' });
-                      } else {
-                        setToastMessage({ text: 'Смета успешно обработана', type: 'success' });
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+                  <button
+                    onClick={() => {
+                      setParsedData([]);
+                      setSearchQuery('');
+                      setCurrentPage(1);
+                    }}
+                    className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+                  >
+                    Отмена
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!selectedDeveloper || !selectedContractor) {
+                        alert('Пожалуйста, выберите Заказчика и Подрядчика');
+                        return;
                       }
-                    } catch (err: any) {
-                      console.error('Upload error', err);
-                      setToastMessage({ text: `Ошибка парсинга сметы: ${err.message}`, type: 'error' });
-                    } finally {
-                      setIsUploading(false);
-                      setUploadProgress(null);
-                      // Reset file input so same file can be selected again if needed
-                      e.target.value = '';
-                    }
-                  }}
-                />
-              </label>
-            )}
-            {isUploading && uploadProgress && (
-              <div className="mt-4 w-full max-w-sm mx-auto">
-                <div className="flex justify-between text-sm text-gray-600 mb-1">
-                  <span>Обработка строк...</span>
-                  <span>{Math.round((uploadProgress.processed / uploadProgress.total) * 100)}% ({uploadProgress.processed} / {uploadProgress.total} частей)</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div className="bg-blue-600 h-2 rounded-full" style={{ width: `${(uploadProgress.processed / uploadProgress.total) * 100}%` }}></div>
+                      if ((parsedData || []).length === 0) {
+                        alert('Нет данных для генерации актов');
+                        return;
+                      }
+                      // Generate logic placeholder
+                      console.log("Generating with data:", { parsedData, selectedDeveloper, selectedContractor, selectedDesigner });
+                      alert(`Готово к генерации! ${(parsedData || []).length} актов будет создано.`);
+                    }}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center shadow-sm"
+                  >
+                    <CheckCircle2 className="w-5 h-5 mr-2" />
+                    Подтвердить данные и сгенерировать
+                  </button>
                 </div>
               </div>
             )}
-          </div>
-        ) : (
-          <div className="flex flex-col h-full space-y-6">
-            {/* Dictionaries Selection */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Заказчик</label>
-                <select
-                  value={selectedDeveloper}
-                  onChange={e => setSelectedDeveloper(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                  <option value="">Выберите заказчика...</option>
-                  {developers.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Подрядчик</label>
-                <select
-                  value={selectedContractor}
-                  onChange={e => setSelectedContractor(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                  <option value="">Выберите подрядчика...</option>
-                  {contractors.map(c => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Проектировщик</label>
-                <select
-                  value={selectedDesigner}
-                  onChange={e => setSelectedDesigner(e.target.value)}
-                  className="w-full bg-white border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                >
-                  <option value="">Выберите проектировщика...</option>
-                  {designers.map(d => <option key={d} value={d}>{d}</option>)}
-                </select>
-              </div>
-            </div>
-
-            {/* Toolbar for Search and Filters */}
-            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-4 rounded-xl border border-gray-200">
-              <div className="relative w-full sm:w-72">
-                <Search className="w-5 h-5 text-gray-400 absolute left-3 top-2.5" />
-                <input
-                  type="text"
-                  placeholder="Поиск по наименованию работ..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-sm"
-                />
-              </div>
-              <div className="flex items-center gap-2 w-full sm:w-auto">
-                <Filter className="w-4 h-4 text-gray-500" />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none w-full sm:w-auto bg-white"
-                >
-                  <option value="all">Все статусы</option>
-                  <option value="draft">Черновик (В работе)</option>
-                  <option value="review">На проверке</option>
-                  <option value="signed">Подписано</option>
-                  <option value="rejected">Отклонено</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Editable Table */}
-            <div className="flex-1 overflow-hidden flex flex-col">
-              <EditableActTable
-                data={paginatedData}
-                onChange={(updatedPaginatedData) => {
-                  // Reconstruct full dataset
-                  const newData = [...parsedData];
-                  const startIndex = (currentPage - 1) * itemsPerPage;
-                  updatedPaginatedData.forEach((item, i) => {
-                    newData[startIndex + i] = item;
-                  });
-                  setParsedData(newData);
-                }}
-              />
-              <div className="mt-4">
-                <Pagination
-                  currentPage={currentPage}
-                  totalPages={totalPages}
-                  onPageChange={setCurrentPage}
-                />
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
-              <button
-                onClick={() => {
-                  setParsedData([]);
-                  setSearchQuery('');
-                  setCurrentPage(1);
-                }}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 transition-colors"
-              >
-                Отмена
-              </button>
-              <button
-                onClick={() => {
-                  if (!selectedDeveloper || !selectedContractor) {
-                    alert('Пожалуйста, выберите Заказчика и Подрядчика');
-                    return;
-                  }
-                  if ((parsedData || []).length === 0) {
-                    alert('Нет данных для генерации актов');
-                    return;
-                  }
-                  // Generate logic placeholder
-                  console.log("Generating with data:", { parsedData, selectedDeveloper, selectedContractor, selectedDesigner });
-                  alert(`Готово к генерации! ${(parsedData || []).length} актов будет создано.`);
-                }}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center shadow-sm"
-              >
-                <CheckCircle2 className="w-5 h-5 mr-2" />
-                Подтвердить данные и сгенерировать
-              </button>
-            </div>
-          </div>
-        )}
-        </>
+          </>
         )}
       </div>
     </div>
