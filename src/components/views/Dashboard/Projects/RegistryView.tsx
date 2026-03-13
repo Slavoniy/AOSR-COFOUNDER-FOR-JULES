@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { useProjects } from '../../../hooks/useProjects';
+import { useProjects } from '../../../../hooks/useProjects';
 import { BookOpenCheck, Search, FileText } from 'lucide-react';
-import { ActDetail } from '../../../modules/shared/domain/types';
+import { ActDetail } from '../../../../modules/shared/domain/types';
 
 export const RegistryView: React.FC<{user: any}> = ({ user }) => {
   const { projects } = useProjects(!!user);

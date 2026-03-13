@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useProjects } from '../../../hooks/useProjects';
+import { useProjects } from '../../../../hooks/useProjects';
 import { ArrowLeft, Upload, FileText, Loader2, CheckCircle2, Search, Filter } from 'lucide-react';
-import { EditableActTable, EstimateDataRow } from './EditableActTable';
-import { eventBus } from '../../../modules/shared/infrastructure/eventBus';
-import { documentService } from '../../../modules/documents/application/documentService';
-import { Pagination } from '../../ui/Pagination';
-import { ActCreateForm } from '../Acts/ActCreateForm';
+import { EditableActTable, EstimateDataRow } from '../../../views/Dashboard/EditableActTable';
+import { eventBus } from '../../../../modules/shared/infrastructure/eventBus';
+import { documentService } from '../../../../modules/documents/application/documentService';
+import { Pagination } from '../../../ui/Pagination';
+import { ActCreateForm } from '../../Acts/ActCreateForm';
 
 interface ObjectDetailViewProps {
   user: any;

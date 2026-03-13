@@ -1,6 +1,6 @@
 import React from 'react';
 import { Settings, User, ShieldCheck, Download } from 'lucide-react';
-import { RoleGuard } from '../../layout/RoleGuard';
+import { RoleGuard } from '../../../layout/RoleGuard';
 
 export const SettingsView: React.FC<{user: any}> = ({ user }) => {
   return (
